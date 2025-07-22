@@ -1,0 +1,121 @@
+##############################
+# 1. 데이터 준비
+##############################
+library(MASS)
+data("Boston")  # Boston 데이터셋 불러오기
+
+# 간단한 정보 확인
+?Boston          # 변수 설명 확인
+str(Boston)      # 구조 확인
+head(Boston)     # 앞부분 미리보기
+
+
+##############################
+# 2. NOX로 MEDV 예측 (lm)
+##############################
+# Q2: nox로 medv를 예측하는 선형회귀 모델
+boston_lm <- lm(medv ~ nox, data = Boston)
+
+# 회귀 결과 요약 출력
+summary(boston_lm)
+
+
+##############################
+# 3. 산점도 + 회귀선
+##############################
+# Q3: x축: nox, y축: medv
+plot(Boston$nox, Boston$medv,
+     main = "NOX vs. MEDV",
+     xlab = "NOX (parts per 10 million)",
+     ylab = "MEDV (median home value in $1000s)",
+     pch = 19)
+abline(boston_lm, col = "red", lwd = 2)
+
+# 이 그래프를 보고 선형 가정이 얼마나 타당한지 시각적으로 판단
+
+
+##############################
+# 4. 잔차 정규성 확인
+##############################
+# Q4: 잔차 히스토그램
+resid_vals <- residuals(boston_lm)
+hist(resid_vals,
+     breaks = 20,
+     main = "Histogram of Residuals",
+     xlab = "Residuals",
+     col = "skyblue",
+     border = "white")
+
+# 대체로 좌우대칭 형태인지(정규분포와 유사한지) 시각적으로 판단
+
+
+##############################
+# 5. (개념) Intercept에 대한 가설검정
+##############################
+# ※ H0: 절편(Intercept) = 0 vs H1: 절편 ≠ 0
+# 이 부분은 회귀 요약 결과(summary(boston_lm))에서 Pr(>|t|) 확인
+# 직접 코드를 통해 p-value를 확인하기보다는 summary에서 확인
+
+
+##############################
+# 6. 기울기의 표준 오차(Std. Error)
+##############################
+# Q6: nox 계수의 표준오차만 추출
+slope_se <- coef(summary(boston_lm))["nox", "Std. Error"]
+slope_se
+
+
+##############################
+# 7. (개념) NOX가 MEDV에 영향을 주는지 검정
+##############################
+# ※ H0: 기울기(β1) = 0 vs H1: 기울기(β1) ≠ 0
+# summary(boston_lm)에서 nox 행의 p-value로 확인
+
+
+##############################
+# 8. NOX 기울기에 대한 T-통계량
+##############################
+# Q8: nox 계수의 t-value만 추출
+slope_t <- coef(summary(boston_lm))["nox", "t value"]
+slope_t
+
+
+##############################
+# 9. 자유도(degrees of freedom)
+##############################
+# Q9: 잔차 자유도
+df_model <- df.residual(boston_lm)
+df_model
+
+t_value <- coef(summary(boston_lm))["nox", "t value"]
+df <- df.residual(boston_lm)
+p_value <- 2 * (1 - pt(abs(t_value), df))
+p_value
+
+##############################
+# 10. (개념) p-value에 따른 결론
+##############################
+# p-value가 매우 작으면(예: 0.05보다 훨씬 작음)
+# → 귀무가설(기울기=0)을 기각, NOX와 MEDV는 유의미한 관계가 있다 결론
+
+
+##############################
+# 11. H0: 기울기 ≥ -30 vs H1: 기울기 < -30 (단측검정)
+##############################
+# t-통계량 계산: (추정값 - 가정값)/표준오차
+slope_est <- coef(boston_lm)["nox"]  # 추정 기울기
+t_stat_onesided <- (slope_est - (-30)) / slope_se
+
+# 해당 t-통계량에 대한 p-value (왼쪽 꼬리 검정)
+p_value_onesided <- pt(t_stat_onesided, df = df_model)
+
+t_stat_onesided
+p_value_onesided
+
+
+##############################
+# 12. (개념) 단측검정 결과 해석
+##############################
+# p_value_onesided 값이 일반적 유의수준(예: 0.05)보다 크면
+# → 귀무가설(기울기 ≥ -30)을 기각하지 못함.
+##############################

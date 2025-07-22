@@ -1,0 +1,5 @@
+"0","# Check distinct country names in mapWorld to find variations"
+"0","mapWorld |> "
+"0","  distinct(region) |> "
+"0","  arrange(region) |> "
+"0","  print(n = 100)"

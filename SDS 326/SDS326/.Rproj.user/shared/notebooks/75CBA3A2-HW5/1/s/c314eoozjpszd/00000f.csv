@@ -1,0 +1,4 @@
+"0","# Geographic coordinates about countries in the world"
+"0","mapWorld <- map_data(""world"") |> "
+"0","        as_tibble()"
+"0","head(mapWorld)"

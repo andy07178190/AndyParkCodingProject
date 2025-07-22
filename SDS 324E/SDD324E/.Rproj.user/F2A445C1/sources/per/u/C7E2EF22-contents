@@ -1,0 +1,37 @@
+install.packages("AER")
+library(AER)
+data("Affairs")
+View(Affairs)
+help(Affairs)
+library(GGally)
+
+a <- barplot(table(Affairs$affairs))
+k <- cor(affiars, age)       
+        
+k <- cor(Affairs$affairs, Affairs$age)
+k <- cor(Affairs$affairs, Affairs$years)
+k <- cor(Affairs$affairs, Affairs$rating)
+
+var(Affairs$affairs, Affairs$rating)
+
+kk <- 0.28^2
+
+sa<- lm(affairs ~ rating, data = Affairs)
+head(sa)
+sa
+
+U <- predict(sa)
+summary(U)
+# 새로운 데이터프레임 생성 (rating = 5)
+new_data <- data.frame(rating = 5)
+
+# affair frequency 예측
+predicted_affairs <- predict(sa, newdata = new_data)
+
+barplot(table(Affairs$rating))
+
+
+filename <- "https://raw.githubusercontent.com/theodds/SDS-348/master/wages.csv"
+wages <- read.csv(filename)
+wages <- subset(wages, select = -X)
+t.test(wages)

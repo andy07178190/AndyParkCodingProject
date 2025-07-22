@@ -1,0 +1,7 @@
+"0",""
+"0","# Plot"
+"0","ggplot(top5_features, aes(x = reorder(Feature, MeanDecreaseAccuracy), y = MeanDecreaseAccuracy)) +"
+"0","  geom_col(fill = ""steelblue"") +"
+"0","  coord_flip() +"
+"0","  labs(title = ""Top 5 Important Features - Random Forest"", x = ""Feature"", y = ""Mean Decrease Accuracy"") +"
+"0","  theme_minimal()"

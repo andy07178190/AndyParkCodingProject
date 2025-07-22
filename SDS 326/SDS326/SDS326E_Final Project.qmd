@@ -1,0 +1,752 @@
+---
+title: "Final Project"
+output: html_document
+editor: 
+  markdown: 
+    wrap: sentence
+---
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval = TRUE,  
+                      warning = FALSE, message = FALSE, 
+                      fig.align = "center",
+                      R.options = list(max.print=100))
+```
+
+# Wine Quality
+
+### Group Members: Julie Jung (yj6645), Heewon Kim (hk25682), Andy Park (ap59864)
+
+# Introduction:
+
+In this report, we analyze a dataset centered on wine quality, which includes chemical attributes and quality ratings for 1,599 wine samples.
+This dataset was made available by the UCI Machine Learning Repository (<https://archive.ics.uci.edu/dataset/186/wine+quality>).
+Each record represents a different wine sample from Portugal’s Vinho Verde region, with features capturing various chemical properties – such as acidity, sugar content, pH, sulfates, and alcohol percentage – along with a sensory quality score rated on a scale from 0 to 10 by expert tasters. 
+
+This dataset offers an opportunity to examine how measurable physical and chemical characteristics relate to human perception of wine quality.
+Through this analysis, we aim not only to identify the key chemical drivers of wine quality but also to investigate ways to refine model performance through residual diagnostics, and to develop practical classification models for categorizing wines.
+By applying techniques from this course, we seek to build predictive and interpretable models that reveal the underlying patterns influencing wine quality assessments. 
+
+# Data Questions:
+
+# Data Pre-Processing:
+
+Initially, the combined dataset included 6497 rows and 13 variables, with each row representing an individual wine sample.
+Data pre-processing involved: - Outlier detection and treatment, which apply Interquartile Range (IQR) and Z-score methods to identify and manage outliers.
+This particularly helps to detect volatile acidity, residual sugar, and sulfur dioxide measures.
+- Normalization and standardization utilize scaling to harmonize feature scales and ensure consistent comparisons across different physicochemical parameters.
+- Encoded categorical variables, such as wine color, which includes red or white wine, are used binary encoding (0 or 1) for regression modeling.
+- Examined multicollinearity using Variance Inflation Factor (VIF), identifying and addressing problematic predictors.
+
+**Question 1:**
+
+**What are the most important factors that predict the quality of red wine?**
+
+The goal was to determine which chemical features are the most important for predicting the quality of red wine.
+We began our analysis by examining a correlation heatmap, which showed that alcohol had the strongest positive correlation with wine quality, while volatile acidity was strongly negatively correlated.
+These early insights gave us direction on which variables might matter most.
+
+```{r}
+library(tidyverse)
+library(caret)
+library(ggcorrplot)
+library(glmnet)
+
+wine <- read.csv("winequality_red.csv")
+cor_matrix <- cor(wine)
+
+ggcorrplot(cor_matrix,
+           method = "square",             
+           lab = TRUE,        
+           lab_size = 3,            
+           tl.cex = 10,         
+           colors = c("blue", "white", "red"),  
+           title = "Correlation Matrix: Wine Quality Dataset")
+```
+
+We chose to implement a Random Forest model as our primary method due to its robustness to outliers, ability to capture non-linear interactions, and its inherent support for feature importance evaluation.
+
+We first explored how the number of trees affects model performance.
+
+```{r}
+library(randomForest)
+library(ggplot2)
+library(Metrics)
+# Train/Test split (80/20)
+set.seed(123)
+train_index <- createDataPartition(wine$quality, p = 0.8, list = FALSE)
+wine_train <- wine[train_index, ]
+wine_test <- wine[-train_index, ]
+
+# Define number of trees
+tree_seq <- seq(100, 600, by = 100)
+oob_errors <- numeric(length(tree_seq))
+test_rmse <- numeric(length(tree_seq))
+
+# Train random forest models and collect errors
+for (i in seq_along(tree_seq)) {
+  rf_model <- randomForest(
+    quality ~ ., 
+    data = wine_train,
+    ntree = tree_seq[i],
+    importance = TRUE,
+    mtry = floor(sqrt(ncol(wine_train) - 1)),
+    oob.prox = TRUE
+  )
+  
+  oob_errors[i] <- sqrt(rf_model$mse[tree_seq[i]])  
+
+  preds <- predict(rf_model, newdata = wine_test)
+  test_rmse[i] <- rmse(wine_test$quality, preds)
+}
+
+# Create data frame for plotting
+error_df <- data.frame(
+  Trees = tree_seq,
+  OOB_Error = oob_errors,
+  Test_RMSE = test_rmse
+)
+
+#Plot OOB Error vs. Number of Trees
+ggplot(error_df, aes(x = Trees, y = OOB_Error)) +
+  geom_line(color = "blue", size = 1.0) +
+  geom_point(color = "blue") +
+  labs(title = "Out-of-Bag (OOB) Error by Number of Trees",
+       x = "Number of Trees",
+       y = "OOB RMSE",
+       subtitle = "Figure 1: OOB Error from Random Forest on Wine Dataset") 
+
+# Plot Test RMSE vs. Number of Trees
+ggplot(error_df, aes(x = Trees, y = Test_RMSE)) +
+  geom_line(color = "red", size = 1.0) +
+  geom_point(color = "red") +
+  labs(title = "Test RMSE by Number of Trees (Train/Test Split)",
+       x = "Number of Trees",
+       y = "Test RMSE",
+       subtitle = "Figure 2: Test Error on Held-Out Set") 
+```
+
+We first explored how the number of trees affects model performance.
+In Figure 1, we compared Out-of-Bag (OOB) error and Test RMSE across different tree counts.
+We found that performance stabilized around 300 trees, with a final Test RMSE of 0.587 and R-squared of 0.467, showing moderate prediction accuracy.
+Next, we tuned the number of variables considered at each tree split.
+
+```{r}
+# Errors by mtry
+p <- ncol(wine_train) - 1  
+mtry_vals <- 1:p
+oob_errors <- numeric(length(mtry_vals))
+test_errors <- numeric(length(mtry_vals))
+
+# Loop over mtry values
+for (i in mtry_vals) {
+  rf_model <- randomForest(
+    quality ~ ., 
+    data = wine_train,
+    ntree = 300,
+    mtry = i,
+    importance = TRUE
+  )
+  
+  oob_errors[i] <- sqrt(rf_model$mse[300])
+  
+  preds <- predict(rf_model, newdata = wine_test)
+  test_errors[i] <- rmse(wine_test$quality, preds)
+}
+
+# Plot out of bag error mtry
+# OOB error plot
+oob_df <- data.frame(mtry = mtry_vals, OOB_Error = oob_errors)
+
+ggplot(oob_df, aes(x = mtry, y = OOB_Error)) +
+  geom_line(color = "black", size = 1.1) +
+  geom_point(color = "black") +
+  labs(title = "Out-of-Bag Error by Number of Predictors",
+       subtitle = "Figure 3.3",
+       x = "Number of Predictors",
+       y = "Out-of-Bag Error") 
+
+# Plot test RMSE by mtry
+# Test RMSE plot
+test_df <- data.frame(mtry = mtry_vals, Test_RMSE = test_errors)
+
+ggplot(test_df, aes(x = mtry, y = Test_RMSE)) +
+  geom_line(color = "black", size = 1.1) +
+  geom_point(color = "black") +
+  labs(title = "Test Set Prediction RMSE by Number of Predictors",
+       subtitle = "Figure 3.4",
+       x = "Number of Predictors",
+       y = "Test error") 
+```
+
+In Figures 2 and 3, we plotted how both OOB error and Test RMSE changed as we varied the number of predictors.
+The best performance occurred when using about 3 to 4 predictors per split.
+
+```{r}
+# Random Forest Model
+# Fit the Random Forest model
+set.seed(123)
+rf_model <- randomForest(
+  quality ~ ., 
+  data = wine_train,
+  ntree = 300,
+  mtry = floor(sqrt(ncol(wine_train) - 1)),  
+  importance = TRUE
+)
+
+# Evaluate Model
+# Predict on test set
+rf_preds <- predict(rf_model, newdata = wine_test)
+
+# Evaluate
+rf_rmse <- rmse(wine_test$quality, rf_preds)
+rf_r2 <- R2(rf_preds, wine_test$quality)
+
+cat("Random Forest Test RMSE:", rf_rmse, "\n")
+cat("Random Forest Test R-squared:",rf_r2,"\n")
+
+# Plot variable importance
+
+# Variable importance
+importance_df <- as.data.frame(importance(rf_model))
+importance_df$Variable <- rownames(importance_df)
+
+# Plot
+ggplot(importance_df, aes(x = reorder(Variable, `%IncMSE`), y = `%IncMSE`)) +
+  geom_col(fill = "steelblue") +
+  coord_flip() +
+  labs(title = "Variable Importance (Random Forest)",
+       x = "Feature",
+       y = "% Increase in MSE") 
+
+varImpPlot(rf_model)
+
+```
+
+The Random Forest model achieved a Test RMSE of 0.587 and an R-squared of 0.467, indicating moderate predictive accuracy.
+The variable importance plot further validated that alcohol, sulphates, volatile acidity, and citric acid are key drivers of wine quality predictions.
+
+We then examined feature importance.
+As shown in Figures 4 and 5, the most important variables were:
+
+-   Alcohol
+
+-   Sulphates
+
+-   Volatile acidity
+
+-   Total sulfur dioxide 
+
+These variables contributed most to improving prediction accuracy in the Random Forest model.
+
+```{r}
+# Lasso Regression
+x_train <- model.matrix(quality ~ ., wine_train)[,-1]
+y_train <- wine_train$quality
+
+x_test <- model.matrix(quality ~ ., wine_test)[,-1]
+y_test <- wine_test$quality
+
+set.seed(123)
+cv_lasso <- cv.glmnet(x_train, y_train, alpha = 1) 
+
+# Best lambda value
+best_lambda <- cv_lasso$lambda.min
+cat("Optimal lambda:", best_lambda, "\n")
+
+# Predict on test set using best lambda
+lasso_pred <- predict(cv_lasso, s = best_lambda, newx = x_test)
+
+# Evaluate
+lasso_rmse <- rmse(y_test, lasso_pred)
+lasso_r2 <- R2(lasso_pred, y_test)
+
+cat("Lasso Test RMSE:", round(lasso_rmse, 3), "\n")
+cat("Lasso Test R-squared:", round(lasso_r2, 3), "\n")
+
+# Examine coefficients
+lasso_coef <- coef(cv_lasso, s = best_lambda)
+print(lasso_coef)
+
+```
+
+To complement our findings, we also ran a Lasso Regression, a model that helps highlight the most relevant variables by shrinking the rest to zero.
+The Lasso model selected an optimal lambda of 0.008 and gave a Test RMSE of 0.651 and R-squared of 0.339.
+While less accurate than Random Forest, Lasso confirmed that alcohol and volatile acidity are key predictors.
+
+In summary, both models identified alcohol, volatile acidity, sulphates, and citric acid as the most imortant factors for predicting wine quality.
+While Random Forest offered better predictive performance, Lasso regression provided valuable interpretability.
+Together, these models give us confidence in the robustness of our findings and offer insights for wine producers aiming to optimize quality through measurable chemical properties.
+
+**Question 2:**
+
+**How can analyzing residual patterns from wine quality prediction models improve the accuracy of predicting the quality ratings for Vinho Verde wines?**
+
+Analyzing residual patterns enhances the accuracy and reliability of Vinho Verde wine quality predictions.
+By systematically evaluating residual diagnostics and statistical tests, we can uncover hidden patterns and limitations of traditional linear models, thereby refining the predictive capabilities of our approach.
+
+We model white-wine quality with n = 4898, using the 4 strongest predictors from our correlation analysis: alcohol, volatile_acidity, sulphates, and residual_sugar.
+First, we check OLS assumptions, drop the top 5 influences, refit, then fit a GAM to capture nonlinearity in alcohol.
+
+```{r}
+library(dplyr)
+library(tidyverse)
+redWines <- read_csv("winequality_red.csv") %>%
+  rename_with(~ gsub("[ .]", "_", .)) %>%
+  mutate(type = "Red")
+whiteWines <- read_csv("winequality_white.csv") %>%
+  rename_with(~ gsub("[ .]", "_", .)) %>%
+  mutate(type = "White")
+
+wines <- bind_rows(whiteWines, redWines) %>%
+  mutate(
+    type  = factor(type, levels = c("White", "Red")),
+    isRed = as.integer(type == "Red")
+  )
+white <- filter(wines, type == "White")
+
+modelDiag <- lm(quality ~ alcohol + volatile_acidity + sulphates + residual_sugar, data = white)
+oldMfrow <- par("mfrow"); oldMar <- par("mar"); oldOma <- par("oma")
+par(mfrow = c(2, 2), mar = c(3.5, 3.5, 2.5, 1), oma = c(0, 0, 1.5, 0))
+plot(modelDiag)
+par(mfrow = oldMfrow, mar = oldMar, oma = oldOma)
+
+residBase <- resid(modelDiag)
+rmseBase <- sqrt(mean(residBase^2))
+adjR2Base <- summary(modelDiag)$adj.r.squared
+inflPoints <- order(cooks.distance(modelDiag), decreasing = T)[1:5]
+trimmedData <- white[-inflPoints, ]
+
+refitModel <- lm(quality ~ alcohol + volatile_acidity + sulphates + residual_sugar, data = trimmedData)
+summary(refitModel)
+
+residRefit <- resid(refitModel)
+rmseRefit <- sqrt(mean(residRefit^2))
+adjR2Refit <- summary(refitModel)$adj.r.squared
+```
+
+Residual vs. Fitted plot does not show obvious curvature.
+
+Normal Q-Q shows residuals roughly Gaussian, since the points lie close to the line.
+
+Scale-Location plot shows homoscedasticity holds, since it shows a roughly horizontal band.
+
+Cook’s distance shows potential outliers, since a handful of points exceed the usual threshold.
+
+After fitting the initial white-wine OLS model, we checked Cook’s distance for each of the total observations to see which points might be unduly pulling on the regression fit.
+The top 5 observations by Cook's distance were then excluded, and we refit exactly the same 4 predictor model, which is: quality \~ alcohol + volatile_acidity + sulphates + residual_sugar
+
+When we compare the refitted model on the trimmed dataset, the coefficient estimates for alcohol, volatile acidity, sulphates, and residual sugar are virtually unchanged, that means all remain highly significant with nearly identical slopes.
+And the residual standard error and adjusted R2 also shift by only a few thousandths; adjusted R2 stays at about 0.265.
+Based on the result, those 5 points, although flagged as “influential,” are not driving the overall relationships in any meaningful way.
+Our linear associations between the four chemistry variables and white-wine quality are therefore robust: removing extreme observations does not materially alter the fitted slopes or the amount of explained variance (0.265).
+
+Following the baseline OLS analysis of white wine quality, we investigated whether a strict linear relationship between alcohol content and perceived wine quality was an appropriate assumption.
+The scatterplot hinted at the possibility of nonlinearity, suggesting that higher alcohol concentrations may not result in a proportional increase in quality.
+To formally test this, we apply a GAM to maintain a flexible and smooth relationship between alcohol and quality while maintaining linear effects on volatile acidity, sulfate, and residual sugar.
+
+```{r}
+# Exploring Nonlinearity in the Alcohol–Quality Relationship
+library(tidyverse)
+library(mgcv)
+
+gamModel <- mgcv::gam(
+  quality ~ s(alcohol) + volatile_acidity + sulphates + residual_sugar,
+  data = white)
+summary(gamModel)
+
+oldMar <- par("mar")
+par(mar = c(3, 3, 2, 1))
+mgcv::plot.gam(gamModel, select = 1, rug = T, shade = T, se = T)
+par(mar = oldMar)
+
+# GAM AIC
+aicGAM <- AIC(gamModel)
+cat("GAM: AIC =", round(aicGAM, 2), "\n\n")
+```
+
+In order to explore potential nonlinearity in alcohol’s effect on white‐wine quality, we fitted a generalized additive model (GAM) with a spline on alcohol and linear terms for volatile acidity, sulfates, and residual sugar using 4,898 observations.
+All linear predictors were highly significant, volatile acidity (beta = −2.17, p \< 2 × 10⁻¹⁶), sulfates (beta = 0.51, p = 7.45 × 10⁻⁸), and residual sugar (beta = 0.021, p \< 2 × 10⁻¹⁶).
+The smooth term for alcohol exhibited an estimated 7.48 degrees of freedom (F = 180.2, p \< 2 × 10⁻¹⁶), revealing a clear diminishing returns pattern, which shows rapid quality gains at low alcohol levels (8–9% Alcohol by Volume, ABV), gradually smaller improvements through the mid range (9–11% ABV), and an almost flat response beyond ≈12% ABV.
+Compared to the baseline OLS model (Adjusted R² = 0.2652, AIC = 11 186.5, Residual Std. Error = 0.7574), the GAM improved model fit (Adjusted R² = 0.2708, AIC = 11 178.2, Residual Std. Error = 0.7564) without undue complexity.
+These findings indicate that targeting moderate alcohol levels ( 9–11% ABV) yields the greatest perceived quality benefit, whereas further increases provide minimal sensory advantages and may even risk off flavors.
+Capturing this nonlinearity is therefore essential for optimizing fermentation strategies, and future work should validate these results via 10‐fold cross validation, examine potential interactions, and test on wines from different vintages or regions to ensure generalizability.
+
+In addition to fitting flexible GAMs, we explored polynomial regression, a simpler parameter strategy for modeling potential nonlinearities.
+Specifically, we fitted a quadratic polynomial model, including both alcohol and alcohol squared (alcohol²) terms as linear predictors.
+This approach allowed us to capture the underlying curvature while maintaining interpretability within the linear modeling framework.
+
+```{r}
+# Secondary modeling to capture curvature
+polyModel <- lm( quality ~ alcohol + I(alcohol^2) +
+            volatile_acidity +
+            sulphates +
+            residual_sugar, data = white)
+summary(polyModel)
+
+residPoly <- resid(polyModel)
+rmsePoly  <- sqrt(mean(residPoly^2))
+adjR2Poly <- summary(polyModel)$adj.r.squared
+aicPoly   <- AIC(polyModel)
+
+rmsePoly
+adjR2Poly
+aicPoly
+```
+
+In our secondary analysis, we fitted a quadratic regression of wine quality on alcohol (both linear and squared) along with volatile acidity, sulfates, and residual sugar.
+The squared‐alcohol term was highly significant (beta2 = 0.0425, p \< 10⁻⁸), while the linear alcohol term itself was negative (beta1 = –0.5503, p = 6×10⁻⁴), together producing a classic concave up curve; the quality rises sharply with initial increases in alcohol, then the marginal benefit tapers off at higher ABV levels.
+Compared to the baseline OLS, the polynomial model yielded a slight but meaningful improvement in fit metrics, adjusted R² increased from 0.2652 to 0.2662, RMSE fell from 0.7574 to 0.7582, and AIC dropped in kind.
+Crucially, a 10 fold cross validation confirmed that this quadratic specification achieved the lowest average RMSE of the three approaches, OLS, polynomial, and GAM, demonstrating that incorporating a simple curvature term can enhance out of sample predictive accuracy without overfitting.
+
+To evaluate how well our models would generalize to new, unseen data, we conducted a 10-fold cross-validation comparison across three models: the baseline OLS, the second-degree polynomial regression, and the GAM.
+For each model, we computed the mean absolute error, root mean squared error, and R² across the 10 folds, allowing a fair and robust assessment of predictive performance.
+
+```{r}
+# Model Generalization 10-cross Performance Across Resamples
+library(caret)
+library(dplyr)
+        
+cvCtrl<- trainControl(method = "cv", number = 10)
+cvOls <- train(quality ~ alcohol + volatile_acidity + sulphates + residual_sugar, data = white, method = "lm", trControl = cvCtrl)
+cvPoly <- train(quality ~ alcohol + I(alcohol^2) + volatile_acidity + sulphates + residual_sugar, data = white, method = "lm", trControl = cvCtrl)
+cvGam <- train(quality ~ alcohol + volatile_acidity + sulphates + residual_sugar, data = white, method = "gamLoess", trControl = cvCtrl)
+
+resamps <- resamples(list(OLS  = cvOls, Poly = cvPoly, GAM  = cvGam))
+summary(resamps)
+
+clf <- wines %>%
+  dplyr::mutate(lbl = factor(ifelse(quality >= 6, "High", "Low"), levels = c("Low","High"))) %>%
+  dplyr::select(alcohol, volatile_acidity, sulphates, residual_sugar, lbl)
+set.seed(5)
+idx <- caret::createDataPartition(clf$lbl, p = 0.8, list = F)
+train <- clf[idx, ]
+test <- clf[-idx, ]
+```
+
+The results revealed a consistent pattern.
+The polynomial regression model slightly outperformed the baseline OLS model, achieving the lowest average RMSE and slightly higher average R².
+Although the absolute differences were modest, they were consistent across folds, suggesting that incorporating the alcohol² term provided real, generalizable improvements in predicting wine quality.
+Specifically, the polynomial model showed a mean RMSE of 0.758 compared to 0.761 for the baseline OLS, and a mean R² of 0.267 compared to 0.262.
+Overall, the cross-validation results support the use of the polynomial regression model for white-wine quality prediction.
+It offers a slight but reliable improvement over simple OLS, while avoiding the volatility and potential overfitting risks associated with GAM.
+For practical applications where model stability and interpretability are important, such as quality control in winemaking, a quadratic model strikes an ideal balance between complexity and predictive power.
+
+```{r}
+# Boost Interpretation
+library(xgboost)  
+library(caret)  
+library(dplyr)    
+
+train_mat <- as.matrix(train %>% dplyr::select(-lbl))
+train_lab <- as.numeric(train$lbl == "High")
+test_mat <- as.matrix(test  %>% dplyr::select(-lbl))
+test_lab <- as.numeric(test$lbl == "High")
+
+dtrain <- xgb.DMatrix(data = train_mat, label = train_lab)
+dtest <- xgb.DMatrix(data = test_mat, label = test_lab)
+
+params <- list(objective = "binary:logistic", eval_metric = "auc")
+xgb_model <- xgb.train(
+  params = params,
+  data = dtrain,
+  nrounds = 100,
+  watchlist = list(train = dtrain, val = dtest),
+  early_stopping_rounds = 10,
+  verbose = 0
+)
+xgb_scores <- predict(xgb_model, dtest)
+xgb_pred <- factor(ifelse(xgb_scores > 0.5, "High", "Low"),
+                     levels = c("Low","High"))
+print(caret::confusionMatrix(xgb_pred, test$lbl))
+```
+
+The AUC, which switched to XGBoost with early discontinuation of validation, showed fast convergence, with a model that peaked at an AUC of 0.8328 after 28 boosting rounds.
+Evaluated on an independent test set, the overall accuracy was 76.7% and the balance accuracy was 74.6%, slightly lower than the original accuracy of random forests, but virtually identical in terms of AUC, based differentiation.
+The confusion matrix was found to accurately identify 317 (sensitivity = 0.666) of 460 low quality wines and 679 (specificity = 0.826) of 822 high-quality wines.
+While the sensitivity to low-quality samples is slightly lower than that of random forests, XGBoost's robust AUC suggests that hard thresholding decisions rank wines with high fidelity, even if they lean slightly toward high quality predictions.
+
+```{r}
+# Random Forest Classification
+rfmodel <- randomForest(lbl ~ ., data = train, ntree = 500)
+rfpred <- predict(rfmodel, test)
+print(caret::confusionMatrix(rfpred, test$lbl))
+
+# ROC comparison
+rocrf <- pROC::roc(test$lbl, predict(rfmodel, test, type = "prob")[,2])
+rocxgb <- pROC::roc(test$lbl, xgb_scores)
+
+
+plot(rocrf,  col = "blue", main = "ROC Curves")
+lines(rocxgb, col = "red")
+legend("bottomright", legend = c(paste("RF AUC =",  round(pROC::auc(rocrf), 3)), 
+                                 paste("XGB AUC =", round(pROC::auc(rocxgb),3))),
+       col = c("blue","red"), lwd = 2)
+
+
+```
+
+When we plot both Random Forest and XGBoost ROC curves together, it becomes immediately apparent that Random Forest delivers the most reliable discrimination between high- and low-quality wines.
+Its curve consistently hugs the top of the chart, translating into an AUC of 0.882 versus 0.837 for XGBoost.
+This performance gap shows that at any given false-positive rate, Random Forest correctly identifies a greater share of true positives.
+That strength comes from averaging predictions over hundreds of decorrelated trees, which smooths out random fluctuations and produces a remarkably stable ranking.
+XGBoost remains highly competitive, particularly in the mid-range of the curve where sensitivity-specificity trade-offs matter most.
+By sequentially fitting trees to the errors of its predecessors, it uncovers subtle, nonlinear interactions among alcohol, acidity, sulfates, and residual sugar.
+In contrast, a simple logistic regression model—relying on a single linear boundary—cannot flex to capture these complexities and would sit noticeably lower on the plot.
+In practice, these results suggest that ensemble methods, and Random Forest in particular, offer winemakers and quality-control teams the best combination of accuracy and robustness for predicting perceived wine quality.
+
+**Conclusion for Question 2:**
+
+After fitting the baseline OLS model, we dug into the residuals vs. fitted plot and saw that the errors didn’t scatter randomly in the mid-alcohol range they bent in a smooth curve, a clear sign of unmodeled nonlinearity.
+On the QQ plot a few points strayed from the theoretical line, and Cook’s distance flagged a handful of observations as overly influential.
+Dropping those extreme cases and refitting left our RMSE and adjusted R² virtually unchanged, which confirmed that our four chemistry predictors were solid but also reinforced that the remaining bias wasn’t coming from outliers.
+Next, we added a spline term for alcohol, then swapped in a simple quadratic term, it paid off.
+Residual deviance and AIC both fell noticeably, while RMSE and adjusted R² edged up.
+In fact, a 10 fold cross validation showed the quadratic model achieved the lowest average RMSE of the three approaches, proving that a single extra curvature term can capture the bend in the data without overfitting.
+By iterating through diagnose, prune outliers, introduce nonlinearity, and then validate, we end up with a lean, trustworthy prediction engine that responds to the delicate interplay of alcohol, acidity, and sugar in Vinho Verde wines exactly the kind of precision winemakers need to fine tune fermentation and blending decisions.
+
+**Question 3:**
+
+**Can we build a predictive model to classify wines as high or low quality based on their chemical properties?**
+
+To address the research question, the first step is to pre-process the data by creating a binary target variable indicating whether a wine was of high or low quality.
+80% of the data is used for training and 20% for testing to ensure an unbiased model performance evaluation.
+Then, the two main classification techniques were applied: logistic regression and random forest.
+Logistic regression served as a simple baseline model, while random forest, a tree-based ensemble method, was used to capture more complex, nonlinear relationships among predictors.
+
+```{r}
+# Load libraries
+library(tidyverse)
+library(caret)
+library(randomForest)
+
+# Load the dataset
+wine <- read.csv("winequality-red.csv", sep = ";")
+
+# Create a binary target: High quality if quality >=6
+wine$quality_label <- ifelse(wine$quality >= 6, "High", "Low")
+wine$quality_label <- as.factor(wine$quality_label)
+
+# Drop original 'quality' column
+wine <- wine %>% select(-quality)
+
+# Split into train and test sets
+set.seed(123)
+train_index <- createDataPartition(wine$quality_label, p = 0.8, list = FALSE)
+train_data <- wine[train_index, ]
+test_data <- wine[-train_index, ]
+
+# Logistic Regression Model
+log_model <- glm(quality_label ~ ., data = train_data, family = binomial)
+log_probs <- predict(log_model, newdata = test_data, type = "response")
+log_preds <- ifelse(log_probs > 0.5, "High", "Low")
+log_preds <- factor(log_preds, levels = c("Low", "High"))
+
+# Confusion Matrix for Logistic Regression
+confusionMatrix(log_preds, test_data$quality_label)
+
+# Random Forest Model
+set.seed(123)
+rf_model <- randomForest(quality_label ~ ., data = train_data, ntree = 100, importance = TRUE)
+
+# Predictions from Random Forest
+rf_preds <- predict(rf_model, newdata = test_data)
+
+# Confusion Matrix for Random Forest
+confusionMatrix(rf_preds, test_data$quality_label)
+
+# Variable Importance Plot
+varImpPlot(rf_model)
+```
+
+*Variable importance plot from the random forest model. Alcohol, sulphates, and volatile acidity are the top predictors of wine quality classification.*
+
+Model performance was assessed using confusion matrices, reporting accuracy, precision, and recall.
+For the random forest model, we also examined variable importance plots using two measures: mean Decrease in Accuracy and Mean Decrease in Gini Index.
+These metrics help identify which chemical features are most critical for predicting wine quality.
+By comparing model performances and analyzing feature importance, the aim is to understand the predictive power of wine chemistry in determining quality ratings.
+
+```{r}
+library(corrplot)
+
+# Compute correlation matrix for only numeric features
+corr_matrix <- cor(wine %>% select_if(is.numeric))
+
+# Plot
+corrplot(corr_matrix, method = "color", type = "upper", tl.cex = 0.8)
+```
+
+*Correlation heatmap showing relationships among chemical features of red wines. Strong positive correlations are seen between density and residual sugar, and between alcohol and quality.*
+
+The correlation matrix in is based on Pearson’s correlation coefficient calculated between all pairs of continuous chemical features in the red wine dataset.
+No predictive model was used.
+Rather than it, this analysis serves as a exploratory assessment of the linear relationships mong attributes such as alcohol, density, volatile acidity, sulphates, and others.
+The resulting matrix visually highlights which attributes are most strongly correlated, either positively or negatively.
+Features with strong correlations to each other or quality are identified for further modelling steps.
+
+```{r}
+# Alcohol content by quality label
+ggplot(wine, aes(x = quality_label, y = alcohol)) +
+  geom_boxplot(fill = "lightblue") +
+  labs(title = "Boxplot of Alcohol Content by Wine Quality Label", x = "Quality", y = "Alcohol (%)") +
+  theme_minimal()
+
+# Sulphate content by quality label
+ggplot(wine, aes(x = quality_label, y = sulphates)) +
+  geom_boxplot(fill = "lightpink") +
+  labs(title = "Boxplot of Sulphate Content by Wine Quality Label", x = "Quality", y = "Sulphate (%)") +
+  theme_minimal()
+
+# Volatile.acidty content by quality label
+ggplot(wine, aes(x = quality_label, y = volatile.acidity)) +
+  geom_boxplot(fill = "lightyellow") +
+  labs(title = "Boxplot of Volatile Acidity Content by Wine Quality Label", x = "Quality", y = "Volatile Acidity (%)") +
+  theme_minimal()
+
+# Density content by quality label
+ggplot(wine, aes(x = quality_label, y = density)) +
+  geom_boxplot(fill = "lightgreen") +
+  labs(title = "Boxplot of Density Content by Wine Quality Label", x = "Quality", y = "Density (%)") +
+  theme_minimal()
+```
+
+*Each boxplot compares alcohol, sulphate, volatile acidity, and density content for high- an low-quality wines. Higher density content is generally associated with high quality wines.*
+
+This displays a boxplot comparing the distribution of each chemical features that are mostly included to wine and show the impact of deciding between high-quality and low-quality wines, based on the binary classification created earlier.
+No predictive model was fitted to generate this figure.
+Instead, density measurements were grouped according to wine quality labels, and visualized using a boxplot to summarize median, interquartile range, and potential outliers.
+This exploratory visualization helps identify differences in density across quality categories and suggests whether density could be a useful feature for predictive modeling.
+
+```{r}
+library(pROC)
+
+# ROC curve
+log_probs <- predict(log_model, newdata = test_data, type = "response")
+roc_log <- roc(test_data$quality_label, log_probs)
+
+# Plot ROC curve
+plot(roc_log, col = "blue", main = "ROC Curve - Logistic Regression")
+abline(a = 0, b = 1, lty = 2)
+```
+
+*Receiver Operating Characteristic curve for logistic regression model predicting wine quality. The model shows a moderate ability to distinguish between high and low quality wines.*
+
+This shows the Receiver Operating Characteristic (ROC) curve for the logistic regression model trained to classify wines as high or low quality based on their chemical attributes.
+The logistic regression model was fitted using all available predictors from the training set.
+The ROC curve is based on predicted probabilities from the logistic model evaluated on the held-out test data.
+This curve illustrates the trade-off between sensitivity and specificity across different classification thresholds.
+A model that perfectly separates classes would have an ROC curve passing through the top-left corner.
+The diagonal line represents random guessing.
+The ROC curve for this logistic regression model indicates moderate ability to distinguish between high and low quality wines.
+
+```{r}
+set.seed(123)
+ctrl <- trainControl(method = "cv", number = 5)
+
+# 5-fold cross-validation
+rf_cv <- train(quality_label ~ ., data = train_data, method = "rf", trControl = ctrl)
+
+# Plot accuracy during CV
+plot(rf_cv)
+```
+
+*Variable importance plot from the random forest model. Alcohol, sulphate, and volatile acidity are the top predictors of wine quality classification.*
+
+This figure shows the cross-validation performance of the random forest model trained to classify wines as high or low quality.
+Using 5-fold cross-validation on the training set, the model was evaluated by repeatedly partitioning the data into training and validation subsets.
+The random forest model was trained on four folds and validated on the remaining fold, iterating over all partitions.
+The figure displays model accuracy across these folds.
+Consistent accuracy across folds suggests that the model generalizes well and is not overfitting to specific subsets of the training data.
+
+```{r}
+rf_probs <- predict(rf_model, newdata = test_data, type = "prob")[, "High"]
+
+# ROC curve
+roc_rf <- roc(test_data$quality_label, rf_probs)
+
+plot(roc_rf, col = "darkgreen", main = "ROC Curve - Random Forest")
+abline(a = 0, b = 1, lty = 2)
+```
+
+*Receiver Operating Characteristic curve for the random forest model. The model demonstrates higher classification accuracy compared to logistic regression.*
+
+This result presents the Receiver Operating Characteristic (ROC) curve for the random forest model used to predict wine quality.
+The random forest was trained on the training data using all available chemical attributes as predictors.
+Predicted probabilities for the "High" quality class were computed on the test set and used to generate the ROC curve.
+This curve illustrates the model's ability to discriminate between high and low quality wines at various classification thresholds.
+The curve’s proximity to the top-left corner indicates strong predictive performance.
+Compared to logistic regression, the random forest achieved a higher area under the curve (AUC), demonstrating superior classification capability.
+
+This project sought to determine whether wine quality could be accurately predicted using only chemical measurements.
+Through the application of both logistic regression and random forest models, we found strong evidence that wine quality is indeed predictable based on physicochemical properties.
+
+The logistic regression model demonstrated moderate classification ability, as shown by its ROC curve and AUC value, suggesting that linear relationships exist between chemical features and perceived wine quality.
+However, the random forest model provided superior performance, achieving higher accuracy and a greater area under the ROC curve.
+Cross-validation further confirmed the stability and generalization of the random forest classifier across different training subsets.
+
+Analysis of variable importance revealed that alcohol, sulphates, and volatile acidity are the most influential predictors, aligning with known factors that contribute to flavor, stability, and overall wine appeal.
+Density and other chemical attributes showed smaller but meaningful associations with wine quality as well.
+
+To be certain of the conclusion, there will be a few more steps in order to check the errors and show a clearer answer to the question:
+
+```{r}
+plot(rf_model, main = "Error Rate vs Number of Trees in Random Forest")
+```
+
+*Plot showing the error rate as the number of trees increases in the random forest model. Model error stabilizes after approximately 50 trees, suggesting sufficient model convergence.*
+
+The figure presents the error rate of the random forest model as a function of the number of trees.
+The random forest was trained on the training set using 100 trees, with each tree contributing to the ensemble classification.
+The plot shows the out-of-bag (OOB) error estimate for each incrementally larger ensemble.
+As the number of trees increases, the error rate decreases initially and then stabilizes, indicating that the model has sufficient complexity without overfitting.
+In this analysis, the error rate plateaued after approximately 50 trees, suggesting that a relatively small forest could achieve high predictive performance while maintaining computational efficiency.
+
+```{r}
+# Extract importance
+importance_rf <- importance(rf_model)
+importance_df <- as.data.frame(importance_rf)
+importance_df$Feature <- rownames(importance_df)
+
+# Select top 5 features
+top5_features <- importance_df %>% 
+  arrange(desc(MeanDecreaseAccuracy)) %>% 
+  slice(1:5)
+
+# Plot
+ggplot(top5_features, aes(x = reorder(Feature, MeanDecreaseAccuracy), y = MeanDecreaseAccuracy)) +
+  geom_col(fill = "steelblue") +
+  coord_flip() +
+  labs(title = "Top 5 Important Features - Random Forest", x = "Feature", y = "Mean Decrease Accuracy") +
+  theme_minimal()
+```
+
+*Bar plot of the top five most important chemical features based on Mean Decrease in Accuracy. Alcohol, sulphates, and volatile acidity are the leading predictors of wine quality classification.*
+
+This displays the top five most important features influencing wine quality classification as determined by the random forest model.
+Feature importance was assessed based on the Mean Decrease in Accuracy metric, which quantifies how much the model’s prediction error increases when each variable is randomly permuted.
+The features with the highest mean decrease in accuracy are the most critical for accurate predictions.
+In this analysis, alcohol content ranked as the most influential predictor, followed by sulphates, volatile acidity, density, and citric acid.
+These findings align with domain knowledge, emphasizing the role of alcohol and sulphate levels in determining wine quality.
+
+Overall, it is concluded that it is feasible to build an effective predictive model to classify wines as high or low quality based solely on chemical properties, with tree-based ensemble methods like random forests offering particularly strong performance.
+Future work could explore even more complex models or additional external features to further improve predictive accuracy.
+
+**Question 3 Conclusion**
+
+This project aimed to investigate whether wine quality could be effectively predicted based solely on measurable chemical properties.
+By transforming wine quality scores into a binary classification of "high" or "low" quality, we applied both logistic regression and random forest models to answer this question.
+
+The logistic regression model demonstrated moderate classification ability, as shown by its ROC curve and area under the curve (AUC).
+However, the random forest model substantially outperformed logistic regression, achieving higher accuracy and better separation between quality classes as indicated by a higher AUC.
+Cross-validation further confirmed the random forest's strong and stable performance across different training subsets, suggesting that the model generalizes well and is not overfitting.
+
+The variable importance analysis revealed that alcohol content was the most influential predictor of wine quality, followed closely by sulphates and volatile acidity.
+These findings align with wine production knowledge, where higher alcohol and controlled sulphate levels contribute to better sensory profiles, while excessive volatile acidity can degrade flavor.
+Additionally, density and citric acid appeared as meaningful secondary factors.
+
+The error rate versus number of trees plot showed that the random forest model stabilized after approximately 50 trees, indicating that the model had sufficient depth and robustness without unnecessary complexity.
+Finally, the top five important features identified reinforce that a small set of chemical measurements carries the majority of the predictive power for wine quality assessment.
+
+In conclusion, the results demonstrate that it is indeed possible to build a reliable predictive model to classify wines as high or low quality using only chemical properties.
+Random forest models, in particular, offer strong predictive capabilities and interpretability, making them practical tools for aiding winemakers and quality control processes.
+Future research could extend this analysis by incorporating additional sensory or environmental data, exploring advanced ensemble methods like XGBoost, or optimizing feature engineering techniques to further enhance predictive accuracy.

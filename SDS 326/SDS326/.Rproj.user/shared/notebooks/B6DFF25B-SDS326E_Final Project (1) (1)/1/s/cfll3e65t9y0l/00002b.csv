@@ -1,0 +1,44 @@
+"0","# OLS Assumptions"
+"0","library(dplyr)"
+"0","library(tidyverse)"
+"0","redWines <- read_csv(""winequality_red.csv"") %>%"
+"0","  rename_with(~ gsub(""[ .]"", ""_"", .)) %>%"
+"0","  mutate(type = ""Red"")"
+"1","[1mRows: [22m[34m1599[39m [1mColumns: [22m[34m12[39m
+"
+"1","[36m──[39m [1mColumn specification[22m [36m───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────[39m
+[1mDelimiter:[22m "",""
+[32mdbl[39m (12): fixed acidity, volatile acidity, citric acid, residual sugar, chlorides, free sulfur dioxide, total sulfur dioxide, density, pH, sulp...
+"
+"1","
+[36mℹ[39m Use `spec()` to retrieve the full column specification for this data.
+[36mℹ[39m Specify the column types or set `show_col_types = FALSE` to quiet this message.
+"
+"0","whiteWines <- read_csv(""winequality_white.csv"") %>%"
+"0","  rename_with(~ gsub(""[ .]"", ""_"", .)) %>%"
+"0","  mutate(type = ""White"")"
+"1","[1mRows: [22m[34m4898[39m [1mColumns: [22m[34m12[39m
+"
+"1","[36m──[39m [1mColumn specification[22m [36m───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────[39m
+[1mDelimiter:[22m "",""
+[32mdbl[39m (12): fixed acidity, volatile acidity, citric acid, residual sugar, chlorides, free sulfur dioxide, total sulfur dioxide, density, pH, sulp...
+"
+"1","
+[36mℹ[39m Use `spec()` to retrieve the full column specification for this data.
+[36mℹ[39m Specify the column types or set `show_col_types = FALSE` to quiet this message.
+"
+"0","wines <- bind_rows(whiteWines, redWines) %>%"
+"0","  mutate("
+"0","    type  = factor(type, levels = c(""White"", ""Red"")),"
+"0","    isRed = as.integer(type == ""Red"")"
+"0","  )"
+"0","white <- filter(wines, type == ""White"")"
+"0",""
+"0",""
+"0","modelDiag <- lm(quality ~ alcohol + volatile_acidity + sulphates + residual_sugar, data = white)"
+"0","oldMfrow <- par(""mfrow""); oldMar <- par(""mar""); oldOma <- par(""oma"")"
+"0","par("
+"0","  mfrow = c(2, 2),"
+"0","  mar   = c(4.5, 4.5, 2.5, 1.5),  "
+"0","  oma   = c(0,   0,   1.5, 0))"
+"0","plot(modelDiag)"

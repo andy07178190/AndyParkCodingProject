@@ -1,0 +1,6 @@
+"0",""
+"0","# Volatile.acidty content by quality label"
+"0","ggplot(wine, aes(x = quality_label, y = volatile.acidity)) +"
+"0","  geom_boxplot(fill = ""lightyellow"") +"
+"0","  labs(title = ""Boxplot of Volatile Acidity Content by Wine Quality Label"", x = ""Quality"", y = ""Volatile Acidity (%)"") +"
+"0","  theme_minimal()"

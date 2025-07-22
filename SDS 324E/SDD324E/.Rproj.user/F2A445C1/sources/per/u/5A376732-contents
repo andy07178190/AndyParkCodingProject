@@ -1,0 +1,195 @@
+# ===================================================
+# QUESTION 1: Fit linear model and check diagnostics
+# ===================================================
+
+# Load necessary packages
+library(tidyverse)   # for data manipulation and ggplot2 functions
+library(ggfortify)   # for autoplot of lm models
+
+# Load the mobility dataset from the provided URL
+mobility_url <- "https://github.com/theodds/SDS-348/raw/master/mobility.csv"
+mobility <- read.csv(mobility_url)[, -1]  # remove the first column (index)
+head(mobility)
+
+# Fit a linear model with Mobility as the outcome and Commute as the predictor
+mobility_lm <- lm(Mobility ~ Commute, data = mobility)
+
+# Generate diagnostic plots using autoplot
+autoplot(mobility_lm)
+# >> Inspect these plots.
+#    Look for non-linearity (the Residuals vs Fitted plot), non-normality (Normal Q-Q plot),
+#    heteroscedasticity (Scale-Location plot) and any influential points (Residuals vs Leverage).
+## Based on a plot Reisiduals vs. Fitted model shows there are such ouliers. Also, the blue line seems there is less linearity too. And since Normal QQ plot shows there are right skewed. And scale-location plot shows heteroscedasticity since the blue line getting increased, not flat linear line.
+# ===================================================
+# QUESTION 2: Influence plot to identify extreme X value
+# ===================================================
+
+# Load the car package (install if needed)
+library(car)
+
+# Create an influence plot to check leverage and influence
+influencePlot(mobility_lm)
+# >> Based on the labels shown on the plot (each point is labeled with its row number),
+#    examine which observation (city) has the most extreme value for Commute.
+## Based on the plot, 382 shows there are outline for y axis. And both 614 and 608 shows outline for x and y axis. And 383 shows identical compared with other outliers 
+## So based on the plot, 608 shows the most extreme value for Commute
+# ===================================================
+# QUESTION 3: Identify the observation with the extreme outcome (Mobility)
+# ===================================================
+
+# Using the same influencePlot as above, identify the observation that is most extreme in terms of the outcome.
+# >> Visually inspect the plot: the point with the most unusual Mobility value is indicated.
+# ===================================================
+# QUESTION 4: Check Cook's distances for influential observations
+# ===================================================
+
+# Plot Cook's distances using autoplot (default 'which = 4' gives the Cook's distance plot)
+autoplot(mobility_lm, which = 4)
+# >> From the plot, note the observation numbers (e.g., Bethel, Nome, Lemmon, Bowman)
+#    that have Cook's distances exceeding the threshold.
+
+# 382, 608, 614
+# ===================================================
+# QUESTION 5: Compare regression lines with/without the most influential point
+# ===================================================
+
+# Identify the most influential observation based on Cook's distance:
+cooks_vals <- cooks.distance(mobility_lm)
+most_influential <- which.max(cooks_vals)
+cat("Most influential observation (row index):", most_influential, "\n")
+
+# Fit the model without the most influential observation
+mobility_no_inf <- mobility[-most_influential, ]
+mobility_lm_no_inf <- lm(Mobility ~ Commute, data = mobility_no_inf)
+
+# Create a scatterplot with ggplot
+library(ggplot2)
+ggplot(mobility, aes(x = Commute, y = Mobility)) +
+  geom_point() +
+  # Regression line for the full dataset (blue)
+  geom_smooth(method = "lm", se = FALSE, color = "blue") +
+  # Regression line for the data without the most influential point (red)
+  geom_smooth(data = mobility_no_inf, method = "lm", se = FALSE, color = "red") +
+  ggtitle("Regression Lines: Full Data (blue) vs. Without Most Influential (red)") +
+  theme_minimal()
+# >> Compare the two lines to assess the impact of the influential point.
+# ===================================================
+# QUESTION 6: Compute dffit for the most influential observation
+# ===================================================
+
+# Calculate dffits for the model
+dffits_vals <- dffits(mobility_lm)
+dffits_most_inf <- dffits_vals[most_influential]
+cat("dffit for the most influential observation:", round(dffits_most_inf, 4), "\n")
+# >> The value (e.g., approximately -0.502) indicates how much the fitted value changes when
+#    the influential point is removed.
+# ===================================================
+# QUESTION 7: Examine dfbetas for the most influential observation
+# ===================================================
+
+# Calculate dfbetas for each observation
+dfbetas_vals <- dfbetas(mobility_lm)
+
+# Extract the dfbetas for the most influential observation
+dfbeta_influential <- dfbetas_vals[most_influential, ]
+print(dfbeta_influential)
+# >> Inspect which coefficient (the intercept or Commute) has the largest absolute dfbeta.
+#    Compare the value to the common cutoff (usually 2/sqrt(n)) to decide if it’s flagged as influential.
+# ===================================================
+# QUESTION 8: Boston housing data with two models – compare diagnostics
+# ===================================================
+
+library(MASS)  # for the Boston dataset
+
+# Load Boston dataset and take a peek
+data("Boston")
+head(Boston)
+
+# Fit a linear model with medv as response (non-log-transformed)
+fit1 <- lm(medv ~ nox + dis + lstat, data = Boston)
+
+# Fit a model using a log-transform of medv
+fit2 <- lm(log(medv) ~ nox + dis + lstat, data = Boston)
+
+# Generate diagnostic plots for both models
+autoplot(fit1)
+autoplot(fit2)
+# >> Compare the standard diagnostic plots for both fits and decide which one better satisfies
+#    the normality, homoscedasticity, and linearity assumptions.
+# ===================================================
+# QUESTION 9: Residuals vs dis for the chosen Boston model
+# ===================================================
+
+# Let’s assume the log-transformed model (fit2) is preferable.
+# Plot residuals versus 'dis'
+plot(Boston$dis, resid(fit2),
+     main = "Residuals vs dis (log-transformed model)",
+     xlab = "dis",
+     ylab = "Residuals",
+     pch = 20, col = "darkblue")
+abline(h = 0, col = "red", lwd = 2)
+# >> Check if the residuals are randomly scattered about zero.
+# ===================================================
+# QUESTION 10: Residuals vs lstat for the same model (fit2)
+# ===================================================
+
+plot(Boston$lstat, resid(fit2),
+     main = "Residuals vs lstat (log-transformed model)",
+     xlab = "lstat",
+     ylab = "Residuals",
+     pch = 20, col = "darkblue")
+abline(h = 0, col = "red", lwd = 2)
+# >> Observe the pattern for any funneling or systematic deviation from zero.
+# ===================================================
+# QUESTION 11: Fit modified Boston model with poly(lstat,2) and check diagnostics
+# ===================================================
+
+# Fit the model using log(medv) and a polynomial function for lstat (degree 2)
+fit3 <- lm(log(medv) ~ nox + dis + poly(lstat, 2), data = Boston)
+
+# Generate diagnostic plots using autoplot
+autoplot(fit3)
+# >> Also, you can explicitly plot residuals vs lstat:
+plot(Boston$lstat, resid(fit3),
+     main = "Residuals vs lstat (Poly degree 2)",
+     xlab = "lstat",
+     ylab = "Residuals",
+     pch = 20, col = "darkblue")
+abline(h = 0, col = "red", lwd = 2)
+# >> Check if the polynomial term for lstat better addresses any curvature or heteroscedasticity.
+# ===================================================
+# QUESTION 11: Fit modified Boston model with poly(lstat,2) and check diagnostics
+# ===================================================
+
+# Fit the model using log(medv) and a polynomial function for lstat (degree 2)
+fit3 <- lm(log(medv) ~ nox + dis + poly(lstat, 2), data = Boston)
+
+# Generate diagnostic plots using autoplot
+autoplot(fit3)
+# >> Also, you can explicitly plot residuals vs lstat:
+plot(Boston$lstat, resid(fit3),
+     main = "Residuals vs lstat (Poly degree 2)",
+     xlab = "lstat",
+     ylab = "Residuals",
+     pch = 20, col = "darkblue")
+abline(h = 0, col = "red", lwd = 2)
+# >> Check if the polynomial term for lstat better addresses any curvature or heteroscedasticity.
+# ===================================================
+# QUESTION 12: Extract coefficient for lstat and interpret in model fit2
+# ===================================================
+
+# Display summary statistics for the log-transformed model
+summary_fit2 <- summary(fit2)
+print(summary_fit2$coefficients)
+# Extract the estimated coefficient for lstat
+lstat_coef <- summary_fit2$coefficients["lstat", "Estimate"]
+cat("Estimated slope for lstat in fit2:", round(lstat_coef, 4), "\n")
+
+# Interpretation:
+# For the model log(medv) ~ nox + dis + lstat, the slope for lstat represents 
+# the change in log(medv) for a one unit increase in lstat, holding nox and dis constant.
+# To interpret this in terms of medv, consider exponentiating the coefficient:
+multiplicative_effect <- exp(lstat_coef)
+cat("Multiplicative effect on medv for a 1-unit increase in lstat:", round(multiplicative_effect, 4), "\n")
+# For example, if lstat_coef is -0.045 then exp(-0.045) ≈ 0.956, meaning a unit increase in lstat
+# is associated with medv being multiplied by about 0.956 (i.e., medv decreases by roughly 4.4%).

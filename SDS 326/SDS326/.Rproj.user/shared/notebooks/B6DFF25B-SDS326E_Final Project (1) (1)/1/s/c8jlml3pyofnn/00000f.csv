@@ -1,0 +1,26 @@
+"0","library(pROC)"
+"2","Type 'citation(""pROC"")' for a citation.
+"
+"2","
+Attaching package: ‘pROC’
+
+"
+"2","The following object is masked from ‘package:Metrics’:
+
+    auc
+
+"
+"2","The following objects are masked from ‘package:stats’:
+
+    cov, smooth, var
+
+"
+"0","# ROC curve"
+"0","log_probs <- predict(log_model, newdata = test_data, type = ""response"")"
+"0","roc_log <- roc(test_data$quality_label, log_probs)"
+"2","Setting levels: control = High, case = Low
+"
+"2","Setting direction: controls < cases
+"
+"0","# Plot ROC curve"
+"0","plot(roc_log, col = ""blue"", main = ""ROC Curve - Logistic Regression"")"

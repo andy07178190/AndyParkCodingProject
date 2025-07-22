@@ -1,0 +1,6 @@
+"0",""
+"0","# Sulphate content by quality label"
+"0","ggplot(wine, aes(x = quality_label, y = sulphates)) +"
+"0","  geom_boxplot(fill = ""lightpink"") +"
+"0","  labs(title = ""Boxplot of Sulphate Content by Wine Quality Label"", x = ""Quality"", y = ""Sulphate (%)"") +"
+"0","  theme_minimal()"

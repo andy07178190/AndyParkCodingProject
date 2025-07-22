@@ -1,0 +1,3 @@
+"0","legend(""bottomright"", legend = c(paste(""RF AUC ="",  round(pROC::auc(rocrf), 3)), "
+"0","                                 paste(""XGB AUC ="", round(pROC::auc(rocxgb),3))),"
+"0","       col = c(""blue"",""red""), lwd = 2)"

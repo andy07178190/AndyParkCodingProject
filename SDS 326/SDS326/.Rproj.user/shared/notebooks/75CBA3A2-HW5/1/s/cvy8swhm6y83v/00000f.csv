@@ -1,0 +1,7 @@
+"0","# Count the number of c(ountries"
+"0","numbercountries <- nrow(mycodes)"
+"0","numbercountries"
+"1","[1]"
+"1"," 218"
+"1","
+"

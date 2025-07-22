@@ -1,0 +1,6 @@
+"0","# Count the number of rows per country"
+"0","rows_country <- myworld1 %>%"
+"0","  group_by(country) %>% "
+"0","  tally() %>% "
+"0","  ungroup()"
+"0","head(rows_country)"

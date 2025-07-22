@@ -1,0 +1,92 @@
+library(tidyverse)
+library(scales)
+
+# 결과 파일 저장 경로 설정
+results_path <- file.path(getwd(), 'results')
+
+# count matrix 불러오기
+all_repeat_count_matrix <- read.csv(
+  file = file.path("/Users/baghuijae/Desktop/Github/celegans_repeat_expression/results", "all_repeat_count_matrix.csv"),
+  header = TRUE
+)
+
+# repeat 요소 좌표 정보 불러오기
+all_repeat_elements <- read.delim(
+  file = file.path("/Users/baghuijae/Desktop/Github/celegans_repeat_expression/results", "all_repeat_elements.bed"),
+  sep = "\t",
+  header = TRUE
+)
+
+# repeat 요소와 count matrix 병합 및 전처리
+merged_repeat_elements_and_counts <-
+  all_repeat_elements %>%
+  # 각 행이 하나의 좌표를 갖도록 분리
+  separate_longer_delim(
+    cols = c(Chr, Start, End, Strand),
+    delim = ";"
+  ) %>%
+  # RepeatID 기준으로 병합
+  left_join(all_repeat_count_matrix, by = "RepeatID") %>%
+  mutate(
+    Chr = as.factor(Chr),
+    Start = as.numeric(Start),
+    End   = as.numeric(End)
+  ) %>%
+  # rDNAdel (rDNA)와 wt.N2 그룹의 평균 raw counts 계산
+  mutate(
+    rDNA_avg = rowMeans(select(., starts_with("rDNAdel")), na.rm = TRUE),
+    N2_avg   = rowMeans(select(., starts_with("wt.N2")),   na.rm = TRUE)
+  ) %>%
+  # raw 데이터 그대로, N2는 음수로 변환
+  mutate(
+    rDNA_raw = rDNA_avg,
+    N2_raw   = -N2_avg
+  )
+
+# Chromosome I의 범위 및 rDNA 시작 위치 (UCSC 기준)
+chrI_start <- 1
+chrI_stop  <- 15072434
+rDNA_start <- 15069280
+
+# 그래프에 사용할 데이터만 추출
+plot_data <- merged_repeat_elements_and_counts %>%
+  filter(Chr == "chrI") %>%               # chrI만 선택
+  filter(!grepl("rRNA", RepeatID)) %>%     # rRNA 제외
+  filter(rDNA_avg > 0 & N2_avg > 0)        # 두 그룹 모두 발현값이 0보다 큰 경우
+
+# y축 최대 절댓값을 구해 1000 단위 눈금 설정에 활용
+max_val <- max(abs(plot_data$rDNA_raw), abs(plot_data$N2_raw))
+
+# 양방형 그래프 생성
+bidirectional_plot <- ggplot(plot_data) +
+  # rDNAdel (rDNA) 위쪽 (양수)
+  geom_segment(
+    aes(x = Start, xend = End, y = 0, yend = rDNA_raw),
+    color = "blue", alpha = 1
+  ) +
+  # wt.N2 아래쪽 (음수)
+  geom_segment(
+    aes(x = Start, xend = End, y = 0, yend = N2_raw),
+    color = "black", alpha = 1
+  ) +
+  # x축: 1Mb 단위 표시
+  scale_x_continuous(
+    breaks = seq(chrI_start, chrI_stop, by = 1e6),
+    labels = unit_format(unit = "M", scale = 1e-6)
+  ) +
+  # y축: -max_val ~ max_val 범위에 1000 단위로 표시, 라벨은 절대값
+  scale_y_continuous(
+    name = "Raw counts",
+    labels = function(x) abs(x),
+    limits = c(-max_val, max_val)
+  ) +
+  # 기준선 및 rDNA 시작 위치 표시
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray") +
+  geom_vline(xintercept = rDNA_start, color = "red", linetype = "dashed") +
+  coord_cartesian(xlim = c(chrI_start, chrI_stop)) +
+  theme_classic() +
+  ggtitle("Bidirectional Expression:\n rDNAdel (Above) vs wt.N2 (Below)")
+
+print(bidirectional_plot)
+
+

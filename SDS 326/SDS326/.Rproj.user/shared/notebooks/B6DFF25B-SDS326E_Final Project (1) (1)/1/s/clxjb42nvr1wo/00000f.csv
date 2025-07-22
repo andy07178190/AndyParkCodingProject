@@ -1,0 +1,9 @@
+"0","rf_probs <- predict(rf_model, newdata = test_data, type = ""prob"")[, ""High""]"
+"0",""
+"0","# ROC curve"
+"0","roc_rf <- roc(test_data$quality_label, rf_probs)"
+"2","Setting levels: control = High, case = Low
+"
+"2","Setting direction: controls > cases
+"
+"0","plot(roc_rf, col = ""darkgreen"", main = ""ROC Curve - Random Forest"")"

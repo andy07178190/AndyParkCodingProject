@@ -1,0 +1,8 @@
+"0","set.seed(123)"
+"0","ctrl <- trainControl(method = ""cv"", number = 5)"
+"0",""
+"0","# 5-fold cross-validation"
+"0","rf_cv <- train(quality_label ~ ., data = train_data, method = ""rf"", trControl = ctrl)"
+"0",""
+"0","# Plot accuracy during CV"
+"0","plot(rf_cv)"

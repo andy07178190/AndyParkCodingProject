@@ -1,0 +1,5 @@
+"0","# Alcohol content by quality label"
+"0","ggplot(wine, aes(x = quality_label, y = alcohol)) +"
+"0","  geom_boxplot(fill = ""lightblue"") +"
+"0","  labs(title = ""Boxplot of Alcohol Content by Wine Quality Label"", x = ""Quality"", y = ""Alcohol (%)"") +"
+"0","  theme_minimal()"

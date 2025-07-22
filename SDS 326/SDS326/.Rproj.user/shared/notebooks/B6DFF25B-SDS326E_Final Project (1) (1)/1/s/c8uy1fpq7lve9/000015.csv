@@ -1,0 +1,6 @@
+"0",""
+"0","# Density content by quality label"
+"0","ggplot(wine, aes(x = quality_label, y = density)) +"
+"0","  geom_boxplot(fill = ""lightgreen"") +"
+"0","  labs(title = ""Boxplot of Density Content by Wine Quality Label"", x = ""Quality"", y = ""Density (%)"") +"
+"0","  theme_minimal()"

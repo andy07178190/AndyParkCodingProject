@@ -1,0 +1,5 @@
+"0","# Count the number of distinct countries in the dataset"
+"0","distinct_countries <- world_bank_pop %>%"
+"0","  distinct(country) %>%"
+"0","  count()"
+"0","distinct_countries"

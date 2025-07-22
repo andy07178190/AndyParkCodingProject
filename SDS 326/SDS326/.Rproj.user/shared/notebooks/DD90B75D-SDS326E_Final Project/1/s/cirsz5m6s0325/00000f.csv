@@ -1,0 +1,14 @@
+"0","# Load libraries"
+"0","library(tidyverse)"
+"0","library(caret)"
+"0","library(randomForest)"
+"0",""
+"0","# Load the dataset"
+"0","wine <- read.csv(""winequality-red.csv"", sep = "";"")"
+"2","Warning in file(file, ""rt"") :"
+"2","
+ "
+"2"," cannot open file 'winequality-red.csv': No such file or directory
+"
+"2","Error in file(file, ""rt"") : cannot open the connection
+"

@@ -1,0 +1,26 @@
+{
+    "id": "D05A717B",
+    "path": "~/Desktop/class coding/SDS 326/SDS326/maximal_margin_classifier.R",
+    "project_path": "maximal_margin_classifier.R",
+    "type": "r_source",
+    "hash": "2362563342",
+    "contents": "",
+    "dirty": false,
+    "created": 1744215770176.0,
+    "source_on_save": false,
+    "relative_order": 1,
+    "properties": {
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "93,0",
+        "scrollLine": "0"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1744143777,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1744143777,
+    "read_only": false,
+    "read_only_alternatives": []
+}

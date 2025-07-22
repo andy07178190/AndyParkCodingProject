@@ -1,0 +1,8 @@
+"0","library(corrplot)"
+"2","corrplot 0.95 loaded
+"
+"0","# Compute correlation matrix for only numeric features"
+"0","corr_matrix <- cor(wine %>% select_if(is.numeric))"
+"0",""
+"0","# Plot"
+"0","corrplot(corr_matrix, method = ""color"", type = ""upper"", tl.cex = 0.8)"
