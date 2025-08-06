@@ -1,0 +1,11 @@
+sample,group,avg_depth
+/Volumes/HDD/AndyPark/repeats_expression/20220619_rDNAdel_rpoa2degron/align/wt-N2_L1_rep1__fsp_ht2-ce10_sbl_sSR.bam,N2,5.70068
+/Volumes/HDD/AndyPark/repeats_expression/20220619_rDNAdel_rpoa2degron/align/wt-N2_L1_rep2__fsp_ht2-ce10_sbl_sSR.bam,N2,5.39559
+/Volumes/HDD/AndyPark/repeats_expression/20220619_rDNAdel_rpoa2degron/align/wt-N2_L1_rep3__fsp_ht2-ce10_sbl_sSR.bam,N2,3.62824
+/Volumes/HDD/AndyPark/repeats_expression/20220619_rDNAdel_rpoa2degron/align/wt-N2_L1_rep4__fsp_ht2-ce10_sbl_sSR.bam,N2,3.2041
+/Volumes/HDD/AndyPark/repeats_expression/20220619_rDNAdel_rpoa2degron/align/rDNAdel-ESC134_L1_rep1__fsp_ht2-ce10_sbl_sSR.bam,rDNA,2.30962
+/Volumes/HDD/AndyPark/repeats_expression/20220619_rDNAdel_rpoa2degron/align/rDNAdel-ESC134_L1_rep2__fsp_ht2-ce10_sbl_sSR.bam,rDNA,3.52619
+/Volumes/HDD/AndyPark/repeats_expression/20220619_rDNAdel_rpoa2degron/align/rDNAdel-ESC190_L1_rep1__fsp_ht2-ce10_sbl_sSR.bam,rDNA,5.02151
+/Volumes/HDD/AndyPark/repeats_expression/20220619_rDNAdel_rpoa2degron/align/rDNAdel-ESC190_L1_rep2__fsp_ht2-ce10_sbl_sSR.bam,rDNA,7.67094
+/Volumes/HDD/AndyPark/repeats_expression/20220619_rDNAdel_rpoa2degron/align/rDNAdel-ESC190_L1_rep3__fsp_ht2-ce10_sbl_sSR.bam,rDNA,4.50407
+/Volumes/HDD/AndyPark/repeats_expression/20220619_rDNAdel_rpoa2degron/align/rDNAdel-ESC190_L1_rep4__fsp_ht2-ce10_sbl_sSR.bam,rDNA,3.77379
