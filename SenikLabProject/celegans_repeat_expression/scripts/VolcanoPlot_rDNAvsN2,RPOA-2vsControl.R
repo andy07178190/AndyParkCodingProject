@@ -79,15 +79,11 @@ volcano_rDNA_N2 <- ggplot(res_rDNA_N2, aes(x = log2FoldChange, y = -log10(padj +
     x = "Log2 Fold Change (rDNA vs. N2)",
     y = "-Log10 Adjusted P-value"
   ) +
-  geom_vline(xintercept = c(-1, 1), linetype = "dashed", color = "blue") +  # Add vertical threshold lines
-  geom_hline(yintercept = -log10(deg_threshold), linetype = "dashed", color = "red")  # Add horizontal threshold line
-
+  geom_vline(xintercept = c(-1, 1), linetype = "dashed", color = "blue") +  
+  geom_hline(yintercept = -log10(deg_threshold), linetype = "dashed", color = "red")  
 print(volcano_rDNA_N2)
 
-# Subset significant genes for RPOA2 vs. N2 (padj < threshold and absolute log2FoldChange > 1)
 sig_RPOA2_N2 <- subset(res_RPOA2_Control, padj < deg_threshold & abs(log2FoldChange) > 1)
-
-# Create a volcano plot for RPOA2 vs. N2 with significant points highlighted and labeled
 volcano_RPOA2_N2 <- ggplot(res_RPOA2_Control, aes(x = log2FoldChange, y = -log10(padj + 1e-10))) +
   geom_point(alpha = 0.7) +  # Plot all points
   geom_point(data = sig_RPOA2_N2, aes(x = log2FoldChange, y = -log10(padj + 1e-10)),
@@ -106,6 +102,4 @@ volcano_RPOA2_N2 <- ggplot(res_RPOA2_Control, aes(x = log2FoldChange, y = -log10
   geom_hline(yintercept = -log10(deg_threshold), linetype = "dashed", color = "red")  # Add horizontal threshold line
 
 print(volcano_RPOA2_N2)
-
-# Print session information
 sessionInfo()

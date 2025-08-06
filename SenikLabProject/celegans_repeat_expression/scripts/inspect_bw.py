@@ -1,6 +1,5 @@
 import pyBigWig
 
-# Update the path below if needed:
 bw_path = "/Volumes/HDD/AndyPark/repeats_expression/20220619_rDNAdel_rpoa2degron/align/bw/N2_mean.bw"
 
 bw = pyBigWig.open(bw_path)

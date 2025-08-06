@@ -2,23 +2,19 @@ library(tidyverse)
 library(scales)
 library(ggrepel)
 
-# Set the path to store results
 results_path <- file.path(getwd(), "results")
 
-# Load the count matrix
 all_repeat_count_matrix <- read.csv(
   file = file.path("/Users/baghuijae/Desktop/Github/celegans_repeat_expression/results", "all_repeat_count_matrix.csv"),
   header = TRUE
 )
 
-# Load repeat elements' coordinate information
 all_repeat_elements <- read.delim(
   file = file.path("/Users/baghuijae/Desktop/Github/celegans_repeat_expression/results", "all_repeat_elements.bed"),
   sep = "\t",
   header = TRUE
 )
 
-# Merge and preprocess repeat elements and count matrix
 merged_repeat_elements_and_counts <- 
   all_repeat_elements %>%
   # Split columns so each row has a single coordinate
@@ -44,8 +40,6 @@ merged_repeat_elements_and_counts <-
     N2_raw   = -N2_avg
   )
 
-# Define the range for chromosome II and the rpoa2 start position
-# (Adjust rpoa2_start if your data indicates a different coordinate)
 chrV_start <- 1
 chrV_stop  <- 20924180
 rpoa2_start  <- 9280923
@@ -59,7 +53,6 @@ plot_data_chrV <- merged_repeat_elements_and_counts %>%
 # Determine the max absolute value for the y-axis, slightly expanded
 max_val_chrV <- max(abs(plot_data_chrV$rpoa2_raw), abs(plot_data_chrV$N2_raw))
 
-# Set the threshold for labeling (e.g., 3000)
 threshold <- 3000
 
 # Identify repeats exceeding the threshold in both groups
@@ -102,7 +95,6 @@ bidirectional_plot_chrV <- ggplot(plot_data_chrV) +
   coord_cartesian(xlim = c(chrV_start, chrV_stop)) +
   theme_classic() +
   ggtitle("Bidirectional Expression ChrII:\n rpoa.2 (Above) vs wt.N2 (Below)") +
-  # Label the repeats that exceed the threshold in both groups
   geom_label_repel(
     data = label_data_chrV,
     aes(
@@ -119,10 +111,8 @@ bidirectional_plot_chrV <- ggplot(plot_data_chrV) +
     max.overlaps = Inf
   )
 
-# Display the plot
 print(bidirectional_plot_chrV)
 
-# Extract elements on chrV that exceed 3000 in both groups, then write to BED
 common_elements_chrV <- plot_data_chrV %>%
   filter(rpoa2_avg > 3000, N2_avg > 3000)
 

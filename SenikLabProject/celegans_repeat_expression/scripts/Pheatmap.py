@@ -28,8 +28,6 @@ def plot_spearman_heatmap(file_path, title):
     # Display the heatmap
     plt.show()
 
-# Example: Create a Spearman correlation heatmap for all repeat VST normalized counts.
 plot_spearman_heatmap("all_repeat_count_matrix.csv", "Spearman Correlation Heatmap of VST Normalized Counts (All Repeats)")
 
-# If you also want to create a heatmap for the repeat superfamily matrix:
 plot_spearman_heatmap("repeat_superfamily_count_matrix.csv", "Spearman Correlation Heatmap of VST Normalized Counts (Repeat Superfamilies)")
