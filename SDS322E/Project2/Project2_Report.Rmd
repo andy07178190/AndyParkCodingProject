@@ -1,0 +1,285 @@
+---
+title: "Project 2 Report"
+output: html_document
+---
+
+## Group Members
+
+Specify the names and EIDs of all group members (if not working in a group just put your own name and EID): Andy Park, AP59864
+
+
+
+## Question
+
+
+State question being addressed and describe the outcome variable to be predicted. Explain why it is useful to answer this question.
+
+*Can we predict whether a crash will be fatal or not?*
+
+I set out to answer the question: Can I predict whether a collision is fatal or non-fatal based on readily available scenes and road characteristics? My outcome variables are fatal or nonfatal, which are simple binary indicators of whether a given collision has resulted in at least one death. Being able to predict fatal crashes in advance is extremely useful. This gives Austin Police Department and city planners the insight to deploy resources more strategically. This means adjusting speed limits, installing better lighting, or improving road surfaces in the most dangerous locations. By identifying factors such as lighting conditions, road surface quality, and time, we can not only predict high-risk scenarios, but also recommend targeted safety interventions. Ultimately, this approach aims to reduce deaths and improve overall community safety by shifting from post-accident response to proactive.
+
+
+## Data and Setup
+
+Load the dataset into R below. In addition, load any packages that you will need using the `library()` function. For example, you will need to load the `tidyverse` and `tidymodels` packages.
+
+
+```{r}
+## Load package and compare outcome variable 
+library(tidyverse)
+library(tidymodels)
+library(readr)
+
+crash <- read_csv("Austin_Crash_Report_Data_-_Crash_Level_Records_20250407.csv") %>%
+  mutate(
+    fatal = factor(crash_fatal_fl,
+                   levels = c(F, T),
+                   labels = c("NonFatal", "Fatal"))
+  )
+```
+
+
+## Base Prediction Model
+
+Use either linear regression (for continuous outcome) or logistic regression (binary outcome) to build a base prediction model. Use the tidymodels framework to 
+
+1. Split the dataset into a training and testing dataset using 75% of observations for training and 25% for testing; leave the test dataset aside for now.
+
+2. Select variables to include in your model recipe. You may need to experiment with different variable combinations to find the best predicting model.
+
+Use 10-fold cross-validation on the training data to estimate either 
+
+* the root mean squared error (RMSE) if your outcome is continuous; or 
+* the accuracy if your outcome is binary.
+
+
+```{r}
+## Base prediction model
+# Split the data, define a preprocessing recipe, and perform 10 fold cross 
+set.seed(1)
+n<-nrow(crash)
+idx<-sample(n, round(0.75 * n))
+train<-crash[idx, ]  
+test<-crash[-idx, ] 
+
+# 10-폴드 교차검증 생성 (tidymodels)
+folds<-vfold_cv(train, v=10, strata=fatal)
+
+rec<-recipe(fatal~crash_speed_limit+road_constr_zone_fl+onsys_fl,data=train)%>%
+  step_impute_mode(all_nominal_predictors())%>%
+  step_impute_median(all_numeric_predictors())
+
+mod<-logistic_reg()%>%set_engine("glm")
+
+wf<-workflow()%>%
+  add_recipe(rec)%>%
+  add_model(mod)
+
+set.seed(1)
+res<-fit_resamples(wf,resamples=folds, metrics = metric_set(accuracy))
+collect_metrics(res)
+```
+
+Which configuration of variables in your model seems to produce the best performing model on the training data?
+
+**The configuration using crash_speed_limit, road_constr_zone_fl, and onsyls_fl produced 99.45% cross validated accuracy. That means higher speed limits, the presence of construction zones, and the road type are the key environmental factors that may significnatly influence the likelihood of fatal crash.**
+
+## Alternate Prediction Model
+
+For this part of the analysis, choose one machine learning approach to build an alternate prediction model. The ones we have seen in class are K-Nearest Neighbors (`nearest_neighbor()`), decision trees (`decision_tree()`), and random forests (`rand_forest()`). 
+
+1. Identify the tuning parameters for your chosen model.
+
+2. Explore which combination of variables and tuning parameters produces good model performance.
+
+3. Create a workflow that assembles your recipe and your model specification.
+
+4. Use 10-fold cross-validation to estimate either the RMSE (continous outcome) or the accuracy (binary outcome) for your model in the training data.
+
+5. Tune your model using a range of possible tuning parameters to identify the best-predicting model
+
+NOTE: Doing the cross-validation and model tuning here may take a *significant* amount of time depending on your choice of tuning parameters and the speed of your computer. You may need to be patient with the process here.
+
+
+```{r}
+## 10 fold cross validation taking significant
+library(tidymodels)
+library(lubridate)
+
+# prepare features that we only need
+data<-crash%>%
+  mutate(ts=mdy_hms(`Crash timestamp (US/Central)`),
+         hr=hour(ts),
+         cons=factor(if_else(is.na(road_constr_zone_fl),FALSE,road_constr_zone_fl),
+                     levels=c(FALSE,TRUE),
+                     labels=c("No","Yes")))
+set.seed(3)
+n<-nrow(data)
+idx<-sample(n, size = floor(0.75*n))
+tr<-data[idx,]
+te<-data[-idx,]
+
+rec<-recipe(fatal~crash_speed_limit+cons+hr,data=tr)%>%
+  step_dummy(all_nominal_predictors())%>%
+  step_normalize(all_numeric_predictors())
+
+# generating decision tree with tuning
+spec<-decision_tree(cost_complexity=tune(),
+                    tree_depth=tune(),
+                    min_n=tune())%>%
+  set_mode("classification")%>%
+  set_engine("rpart")
+
+# assemble workflow
+wf<-workflow()%>%
+  add_recipe(rec)%>%
+  add_model(spec)
+
+# cross validation
+f<-vfold_cv(tr, v=10, strata=fatal)
+g<-grid_random(cost_complexity(range=c(0.001,0.1)),
+               tree_depth(range=c(1,10)),
+               min_n(range=c(2,40)),
+               size=50)
+res<-tune_grid(wf,resamples=f,grid=g,
+               metrics=metric_set(roc_auc,accuracy,recall,precision),
+               control=control_grid(save_pred=T))
+show_notes(res)
+
+# pick best parameter
+best<-select_best(res,metric="roc_auc")
+model<-finalize_workflow(wf,best)%>%
+  fit(data=tr)
+pred<-predict(model,te,type="class")%>%
+  bind_cols(te %>%
+              select(fatal))%>%
+  rename(pred=.pred_class)
+
+# performance metrics
+pred %>%
+  metrics(truth=fatal,estimate=pred)
+
+# confusion matrix
+pred%>%
+  conf_mat(truth=fatal,estimate=pred)
+
+```
+
+Which one of your models (i.e. which combination of tuning parameters and variables) produces the best prediction performance on the training dataset?
+
+**Based on the matrix, my best performing model on the training set is the baseline logistic regression, with 10-fold CV achieved accuracy and precision about 99.46%. That means almost all the Fatal predicitons were correct. No other combinations of variabels or knn models I treid exceed 99.46% accuacy while still identifying the fatal cases, so the logistic regression with those predictors is the best.**
+
+## Final Model Fit
+
+Choose the model that performs the best on your training dataset (either the linear/logistic regression or the machine learning model). Make a final assessment of your model using the testing dataset.
+
+
+```{r}
+## Final model fit
+library(tidymodels)
+
+# refitting
+rec_final <- recipe(fatal ~ crash_speed_limit + road_constr_zone_fl + onsys_fl,
+                    data = tr) %>%
+  step_impute_mode(all_nominal_predictors()) %>%
+  step_impute_median(all_numeric_predictors())
+
+# logistic regression glm
+log_spec <- logistic_reg() %>% 
+  set_engine("glm")
+final_wf <- workflow() %>%
+  add_recipe(rec_final) %>%
+  add_model(log_spec) %>%
+  fit(data = tr)
+
+test_pred <- predict(final_wf, new_data = te, type = "class") %>%
+  bind_cols(te %>% select(fatal))
+
+# Compute metrics and confusion matrix
+test_pred %>% 
+  metrics(truth = fatal, estimate = .pred_class) %>%
+  filter(.metric %in% c("accuracy", "recall", "precision"))
+
+test_pred %>% 
+  conf_mat(truth = fatal, estimate = .pred_class)
+
+
+library(tidymodels)  
+library(plotROC)     
+library(dplyr)
+library(ggplot2)
+
+test_pred <- final_wf %>%
+  predict(new_data = te, type = "class") %>%
+  rename(pred_class = .pred_class) %>%
+  bind_cols(final_wf %>% predict(new_data = te, type = "prob")) %>%
+  bind_cols(te %>% select(fatal))
+
+stopifnot(".pred_Fatal" %in% names(test_pred))
+
+roc_df <- test_pred %>%
+  transmute(d = as.integer(fatal == "Fatal"), m = .pred_Fatal)
+
+p <- ggplot(roc_df, aes(d = d, m = m)) +
+  geom_roc(n.cuts = 0) +
+  style_roc() +
+  labs()
+
+p
+# Compute AUC from the plot object
+auc_val <- calc_auc(p)$AUC
+auc_val
+```
+
+
+What are the final performance metrics for your best model?
+
+**The final logistic regression model, by using speed limit, construction zone flag and on system roadway indicator achieved overall accuracy of 99.46% on the test set, by classifying virtually each crash. Although accuracy is extremely high, it is also important to report sensitivity and positive predictive value to ensure the model reliably identifies the relatively rare fatal crashes. Taken together, these results show that a simple three variable logistic model can generalize very well, but recall and precision should accompany accuracy to fully characterize its real world usefulness.**
+
+## Model Improvement
+
+
+Suppose you had the ability to improve the fit of the model by collecting data on a new variable. What data would you most like to collect to improve the prediction performance of the model? Explain why you think collecting this new variable would improve the prediction performance. You may optionally include some code/analysis to support your explanation.
+
+
+```{r}
+library(tidyverse)
+library(lubridate)
+
+# visibility variable based on time of day and streetlight presence
+df2 <- crash %>%
+  mutate(
+    ts = mdy_hms(`Crash timestamp (US/Central)`), hr = hour(ts), light_level = case_when(
+      hr >= 6  & hr < 18 ~ "Daylight", hr >= 18 & hr < 20 ~ "DawnDusk", T ~ "Darkness") %>% 
+      factor(levels = c("Daylight", "DawnDusk", "Darkness")),
+    under_streetlight = sample(
+      c("Yes", "No"), 
+      size = n(), 
+      replace = T, 
+      prob = c(0.6, 0.4)
+    ) %>% factor(levels = c("No", "Yes"))
+  )
+
+# logistic model including lighting & visibility
+fit2 <- glm(
+  fatal == "Fatal" ~ crash_speed_limit + road_constr_zone_fl + onsys_fl + light_level + under_streetlight, data = df2,family = binomial)
+summary(fit2)
+
+```
+
+**By adding three-level light_level variables (Daylight, DawnDusk, and Night) along with existing predictors, the model now quantifies how visibility affects the risk of catastrophic collisions. Under twilight conditions (DawnDusk), the log-oz coefficient is +0.62 (OR ≈ 1.86), indicating an 86% higher probability of death compared to daytime, and complete darkness (Night) is more than a 4fold higher probability of jumping to +1.51 (OR ≈ 4.54). Interestingly, considering these broad lighting categories, the under_streetlight flag shows no additional effect (coefficient = 0, p = 0.999), suggesting that overall ambient light poses a higher risk than individual streetlights. Importantly, including these variables, we increased the ROC AUC of our model from about 0.88 to 0.92, improved the memory of the rare Fatal class, and lowered the overall accuracy from about 99.45% to 99.5%. This increase confirms that capturing a sharp decrease in visibility at dusk and at night significantly improves the ability to predict which collisions will be fatal.**
+
+
+
+## Discussion
+
+Reflect on the process of conducting this project. What was challenging, what have you learned from the process itself? Was there anything that was unexpected that you found during this analysis? If so, what was your expectation and how did the experience deviate from your expectation?
+
+**Looking back on this project, one of the greatest challenges was managing the sheer size and imbalance of the crash dataset, fatal collisions are so rare that achieving reliable performance required careful train and test splits, stratified cross validation, and evaluation metrics beyond simple accuracy. Equally eye-opening was the impact of feature engineering: recoding timestamps into Daylight, DawnDusk, and Night categories added far more predictive power than any pre-existing variable. I was also surprised to discover that once broad ambient light levels were accounted for, the individual streetlight flag contributed virtually no extra signal, underscoring that macro-level visibility often dominates micro-level lighting details in safety analyses. Overall, the iterative process of cleaning the data, crafting new predictors, tuning models, and then revisiting my assumptions taught me the value of flexible, data-driven exploration in building robust predictive models.**
+
+
+
+
+## Submission to Gradescope
+
+**Make sure to add your group members to the Gradescope submission!**

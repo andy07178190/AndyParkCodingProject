@@ -1,0 +1,192 @@
+---
+title: "Lab 10"
+output: html_document
+---
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval = TRUE,  
+                      warning = FALSE, message = FALSE, 
+                      fig.align = "center",
+                      R.options = list(max.print=100))
+
+# Edit the file starting below
+```
+
+### Enter the names of the group members here: Andy Park, Emaan Haq,Armaan Christ 
+
+**This assignment is due by the end of the lab. Only one student in the group submits a pdf file on Gradescope.**
+
+*For all questions, include the R commands/functions that you used to find your answer (show R chunk). Answers without supporting code will not receive credit. Write full sentences to describe your findings.*
+
+Let's load the appropriate packages for today:
+
+```{r, warning=FALSE}
+library(tidyverse)
+library(plotROC)
+library(caret)
+```
+
+Upload the dataset for this lab from GitHub:
+
+```{r}
+# Upload data from GitHub
+Insurance <- read_csv("Insurance.csv")
+```
+
+This dataset includes 85 predictors that measure demographic characteristics for 5,822 individuals. The response variable is `Purchase`, which indicates whether or not a given individual purchased a caravan insurance policy. 
+
+The goal of the lab is to predict if an individual is likely to purchase a caravan insurance policy or not, depending on some demographic information.
+
+------------------------------------------------------------------------
+
+### Question 1: (2 pts)
+
+In the `Insurance` dataset, what proportion of individuals purchased a caravan insurance policy?
+
+```{r}
+# Calculate the counts and proportions for the Purchase variable.
+purchaseT <- table(Insurance$Purchase)
+purchaseT
+Ppurchase <- prop.table(purchaseT)
+Ppurchase
+```
+
+**The frequency table shows that 5474 observations are labeled No and 348 are labeled Yes. And the proportion table shows 0.94022673 which corresponds to the proportion labeled No and 0.05977327 which corresponds to the proportion labeled Yes.**
+
+------------------------------------------------------------------------
+
+### Question 2: (5 pts)
+
+Recode the response variable `Purchase` as 0 if an individual did not purchase a caravan insurance policy, and 1 if they did. 
+
+```{r}
+# Recode Purchase: if Yes then 1, if No then 0.
+Insurance <- Insurance %>%
+  mutate(Purchase = factor(Purchase, levels = c(0, 1), labels = c("No", "Yes")))
+  table(Insurance$Purchase)
+
+```
+
+Fit a logistic regression model to predict the response based on all 85 predictors. Call that model `Insurance_log`.
+
+```{r}
+# Fit logistic regression model using all predictors.
+Insurance_log <- glm(Purchase ~ ., data = Insurance, family = "binomial")
+summary(Insurance_log)  
+```
+
+Only keep the variable `Purchase` in `Insurance`, then save the probabilities of purchasing a caravan insurance policy as a variable called `predictions` and find the associated `predicted` outcome (taking the value 1 if prediction > 0.5, and the value 0 otherwise). Save the results in an object called `pred_log`.
+
+```{r}
+# Get predicted probabilities from the logistic regression model.
+predictions <- predict(Insurance_log, type = "response")
+predicted <- ifelse(predictions > 0.5, 1, 0)
+pred_log <- data.frame(Purchase = Insurance$Purchase, 
+                       predicted = predicted, 
+                       predictions = predictions)
+pred_log
+
+```
+
+Using the `table()` function, build the confusion matrix using the `predicted` and `Purchase` columns of the `pred_log` object for the logistic regression model. What do you notice?
+
+```{r}
+# Build and display the confusion matrix.
+matlog <- table(pred_log$Purchase, pred_log$predicted)
+matlog
+```
+
+**The logistic regression model's confusion matrix shows that out of the total observations, there are 5466 true negatives and 8 false positives, while only 2 true positives are identified against 346 false negatives. This indicates that although the overall accuracy appears high due to the dataset’s imbalance, the model’s sensitivity and precision for predicting the few purchasers are extremely low.**
+
+------------------------------------------------------------------------
+
+### Question 3: (3 pts)
+
+Let's consider a k-nearest neighbor (kNN) classifier. Why do you think we should consider scaling our variables when using such a classifier? 
+
+**Scaling is important when using a kNN classifier because kNN uses distance measures to compare observations. If the predictors are on different scales, variables with larger scales would dominate the distance computation, distorting the model’s ability to fairly assess similarity among observations.**
+
+Scale all variables in the `Insurance` data frame *except* `Purchase` and save the resulting dataset as `Insurance_scaled`. (HINT: You can use `mutate()` and `across()` to do this if you want.)
+
+```{r}
+# Scale all variables except Purchase.
+Insurance_scaled <- Insurance %>%
+  mutate(across(where(is.numeric), scale))
+summary(Insurance_scaled)
+```
+
+------------------------------------------------------------------------
+
+### Question 4: (5 pts)
+
+Using the `knn3()` function, fit a k-nearest neighbor classifier with `k = 5` on `Insurance_scaled`. Save the resulting model output as an R object named `Insurance_kNN`.
+
+```{r}
+# Fit kNN classifier using knn3 with k = 5.
+Insurance_kNN <- knn3(Purchase ~ ., data = Insurance_scaled, k = 5)
+```
+
+Only keep the variable `Purchase` in `Insurance_scaled`, then save the proportions of purchasing a caravan insurance policy as a variable called `predictions` and find the associated `predicted` outcome (taking the value 1 if prediction > 0.5, and the value 0 otherwise). Save the resulting data frame in an object named `pred_kNN`.
+
+```{r}
+# Get predicted probabilities for class 1 from the kNN model.
+predictions_knn <- predict(Insurance_kNN, newdata = Insurance_scaled, type = "prob")[,2]
+
+predicted_knn <- ifelse(predictions_knn > 0.5, 1, 0)
+predicted_knnfactor <- factor(predicted_knn, levels = c(0, 1), labels = c("No", "Yes"))
+pred_kNN <- data.frame(Purchase = Insurance_scaled$Purchase, 
+                       predicted = predicted_knnfactor, 
+                       predictions = predictions_knn)
+
+head(pred_kNN)
+conf_matknn <- table(Actual = pred_kNN$Purchase, Predicted = pred_kNN$predicted)
+conf_matknn
+```
+
+Build the confusion matrix for the kNN classifier. 
+
+```{r}
+# Extract true positives and false positives  from the confusion matrix.
+TP <- conf_matknn["Yes", "Yes"]
+FP <- conf_matknn["No", "Yes"]
+success <- TP / (TP + FP)
+success
+
+```
+
+Suppose that the company would like to visit potential customer but since there are some costs involved in doing so, they only try to sell insurance to customers who are likely to buy it. According to the confusion matrix, what is the success rate for selling a caravan insurance policy?
+
+**The success rate for selling the caravan insurance policy is approximately 59.57%, meaning that about 59.57% of the customers predicted to buy actually ended up purchasing the policy.**
+
+------------------------------------------------------------------------
+
+### Question 5: (3 pts)
+
+Build a ROC curve (using `geom_roc()`) to compare the logistic regression model to the kNN classifier in predicting the purchase of a caravan insurance policy. How do those compare?
+
+```{r}
+# Create a new data frame for ROC analysis.
+roc_data <- data.frame(
+  Outcome = as.numeric(Insurance$Purchase == "Yes"), 
+  Logistic = predictions,         
+  kNN = predictions_knn    
+)
+
+library(ggplot2)
+library(plotROC)
+
+ggplot(roc_data, aes(d = Outcome)) +
+  geom_roc(aes(m = Logistic), n.cuts = 0) +
+  geom_roc(aes(m = kNN, color = "kNN"), n.cuts = 0) +
+  style_roc() + labs() +
+  theme_minimal()
+
+```
+
+**From the ROC curves, we see that the logistic regression model generally yields a higher true positive rate for a given false positive rate compared to the kNN model, suggesting that logistic regression achieves a better trade off between sensitivity and specificity. However, due to the low proportion of actual purchasers in the data, both models still face challenges. Adjusting the decision threshold or considering other metrics may provide additional insights.**
+
+------------------------------------------------------------------------
+
+### Formatting: (2 pts)
+
+Comment your code, write full sentences, knit your file, and select all appropriate pages in Gradescope for each question!

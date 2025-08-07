@@ -1,0 +1,204 @@
+---
+title: "HW 7"
+output: html_document
+---
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval = TRUE,  
+                      warning = FALSE, message = FALSE, 
+                      fig.align = "center",
+                      R.options = list(max.print=100))
+
+# Edit the file starting below
+```
+
+### Enter your name and EID here: Andy Park, AP59864
+
+**You will submit this homework assignment as a pdf file on Gradescope.**
+
+*For all questions, include the R commands/functions that you used to find your answer (show R chunk). Answers without supporting code will not receive credit. Write full sentences to describe your findings.*
+
+We will use the packages `tidyverse` and  `plotROC` for this assignment. If you do not have the `plotROC` package (i.e. loading the package with `library()` produces an error), then you should install it separately before doing this assignment.
+
+```{r, message = FALSE}
+# Load packages
+library(tidyverse)
+library(plotROC)
+```
+
+------------------------------------------------------------------------
+
+## Question 1: (4 pts)
+
+We will use the `pokemon` dataset for this assignment:
+
+```{r}
+# Upload data from GitHub
+pokemon <- read_csv("https://raw.githubusercontent.com/laylaguyot/datasets/main//pokemon.csv")
+
+# Take a look 
+head(pokemon)
+```
+
+Recode the variable `Legendary`, taking a value of 0 if a pokemon is not legendary and a value of 1 if it is. Save the resulting data as `my_pokemon`.
+
+```{r}
+# Recode Legendary column to be binary 
+my_pokemon <- pokemon %>%
+  mutate(Legendary = if_else(Legendary, 1, 0)) 
+```
+
+Visualize the linear relationship between `Attack` and `HP` (hit points) for each legendary status. 
+
+*Hint: For the plot, convert the legendary status binary variable to a factor using `as.factor()`.* 
+
+Do `Attack` and `HP` seem to predict Legendary status? Comment with what you see in the visualization.
+
+```{r}
+# Create a scatter plot for Attack vs. HP colored by Legendary status
+ggplot(my_pokemon, aes(x = Attack, y = HP, color = as.factor(Legendary))) +
+  geom_point() +
+  labs(x = "Attack", 
+       y = "HP", 
+       color = "Legendary (0 = No, 1 = Yes)",
+       title = "Relationship between Attack and HP") +
+  theme_minimal()
+```
+
+**The scatter plot shows that both nonlegendary and legendary pokemon cover a similar range of Attack and HP values. There is some separation in certain regions, but overall, there is substantial overlap between the two groups. This suggests that relying solely on Attack and HP values may not be sufficient for clearly predicting Legendary status.**
+
+------------------------------------------------------------------------
+
+## Question 2: (2 pt)
+
+Let's predict `Legendary` status using a linear regression model with `Attack` and `HP` in `my_pokemon`. Fit this model, call it `pokemon_lin`, and write its equation.
+
+```{r}
+# Fit a linear regression model to predict Legendary status using Attack and HP
+pokemon_lin <- lm(Legendary ~ Attack + HP, data = my_pokemon)
+summary(pokemon_lin)
+```
+
+**The linear regression model output indicates that the predicted Legendary status can be written as legendary = 0.02645 + 0.00120 × Attack + 0.00270 × HP. This means that for every one-unit increase in Attack and HP, the expected value of Legendary increases by 0.00120 and 0.00270 respectively, and while these coefficients suggest a positive relationship, the model’s unbounded predictions highlight why logistic regression may be more appropriate for a binary outcome like Legendary status.**
+
+------------------------------------------------------------------------
+
+## Question 3: (3 pts)
+
+Choose a pokemon whose name starts with the same letter as yours. Take a look at its stats and, using the equation of your model from the previous question, predict the legendary status of this pokemon, "by hand" (multiplying the predictors with the estimated coefficients):
+
+```{r}
+# Choose a pokemon whose name starts with A (Andy).
+selected_pokemon <- my_pokemon %>% filter(Name == "Articuno")
+selected_pokemon
+```
+
+Check your answer by using `predict()` with the argument `newdata =`:
+
+```{r}
+# Extract coefficients from the linear model
+coefs <- coef(pokemon_lin)
+coefs
+
+manual_prediction <- coefs[1] + coefs[2] * selected_pokemon$Attack + coefs[3] * selected_pokemon$HP
+manual_prediction
+predict_prediction <- predict(pokemon_lin, newdata = selected_pokemon)
+predict_prediction
+
+```
+
+Was your pokemon predicted to be legendary (i.e. is the prediction close to 0 or 1)? Why or why not? Does it match character's Legendary status in dataset?
+
+**The logistic regression model predicts a probability of about 0.13 for the selected Pokémon, which is much closer to 0 than to 1. This indicates that, according to the model, the Pokemon is predicted to be non-legendary, a conclusion that aligns with its actual status in the dataset.**
+
+------------------------------------------------------------------------
+
+## Question 4: (2 pts)
+
+We can measure how far off our predictions are from reality with residuals. Use `resid()` to find the residuals of each pokemon in the dataset then find the sum of all residuals. What is the sum of all the residuals. Why does it make sense? 
+
+```{r}
+# Get residuals from the linear model and sum it
+residuals_lin <- resid(pokemon_lin)
+
+sum_residuals <- sum(residuals_lin)
+sum_residuals
+
+ 
+```
+
+**The sum of all the residuals is close to zero. This result makes sense because, by construction, the ordinary least squares method ensures that the sum of the residuals equals zero.**
+
+------------------------------------------------------------------------
+
+## Question 5: (2 pts)
+
+A logistic regression would be more appropriate to predict `Legendary` status since it can only take two values. Fit this new model with `Attack` and `HP`, call it `pokemon_log`, and write its equation. *Hint: the logit form is given by the R output.*
+
+```{r}
+# Fit a logistic regression model with binary outcome Legendary using Attack and HP
+pokemon_log <- glm(Legendary ~ Attack + HP, data = my_pokemon, family = "binomial")
+summary(pokemon_log)
+summary(pokemon_log)
+```
+
+**If the intercept is 0.859, with Attack and HP coefficients of 0.010 and 0.005 respectively, then each additional point in Attack increases the log-odds of being Legendary by 0.010 and each extra HP by 0.005, indicating that higher values of these stats are associated with increased odds of a Pokémon being Legendary.**
+
+------------------------------------------------------------------------
+
+## Question 6: (2 pts)
+
+According to this new model, is the pokemon you chose in question 3 predicted to be legendary (i.e. probability is greater than 0.5)? Why or why not? 
+
+*Hint: you can use predict() with the arguments `newdata =` and `type = "response"`.*
+
+```{r}
+# Predict the probability of being legendary for the selected pokemon using the logistic regression model
+logistic_prob <- predict(pokemon_log, newdata = selected_pokemon, type = "response")
+logistic_prob
+```
+
+**The logistic regression model yields a probability that is much lower than 0.5 for the selected pokemon, which is 0.0738. This means the model predicts Articuno is not legendary, which is consistent with the actual legendary status of Articuno in the dataset.**
+
+------------------------------------------------------------------------
+
+## Question 7: (3 pts)
+
+Let's compare the performance of these two models using ROC curves. On the same plot using `geom_roc()`, represent the ROC curve for predicting `Legendary` status based on the predictions from the linear regression in blue and another ROC curve based on the predictions from the logistic regression in orange.
+
+*Hint: You will need to make predictions from both the `pokemon_lin` model object and the `pokemon_log` model object. For the `pokemon_log` model, make sure to make predictions using `type = "response"`.*
+
+```{r}
+# Create predictions from both models
+my_pokemon <- my_pokemon %>%
+  mutate(
+    lin_pred = predict(pokemon_lin),
+    log_pred = predict(pokemon_log, type = "response")
+  )
+
+# Create an ROC curve plot using geom_roc() from the plotROC package
+ggplot(my_pokemon, aes(d = Legendary)) +
+  geom_roc(aes(m = lin_pred), color = "blue", labelsize = 3) +
+  geom_roc(aes(m = log_pred), color = "red", labelsize = 3) +
+  labs(title = "ROC Curves",
+       x = "False Positive Rate",
+       y = "True Positive Rate") +
+  theme_minimal()
+ 
+```
+
+How do these two models compare?
+**These two models both attempt to classify Pokémon as Legendary versus not, but the logistic regression model generally does a better job because it produces probabilities between 0 and 1 that are more suitable for a binary outcome. By contrast, the linear regression model can generate predictions outside the 0 to 1 range, making it less ideal for classification. As shown in the ROC curves, the logistic regression curve tends to provide better discrimination reflected in metrics like the AUC—compared to the linear model’s curve.**
+
+------------------------------------------------------------------------
+
+## Formatting: (2 pts)
+
+Comment your code, write full sentences, knit your file, and select all appropriate pages in Gradescope for each question!
+
+------------------------------------------------------------------------
+
+```{r, echo=F}
+## DO NOT DELETE THIS BLOCK!
+Sys.info()
+```

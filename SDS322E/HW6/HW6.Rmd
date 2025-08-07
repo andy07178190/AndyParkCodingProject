@@ -1,0 +1,273 @@
+---
+title: "HW 6"
+output: html_document
+---
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval = TRUE,  
+                      warning = FALSE, message = FALSE, 
+                      fig.align = "center",
+                      R.options = list(max.print=100))
+
+# Edit the file starting below
+```
+
+### Enter your name and EID here: Andy Park, AP59864
+
+**You will submit this homework assignment as a pdf file on Gradescope.**
+
+*For all questions, include the R commands/functions that you used to find your answer (show R chunk). Answers without supporting code will not receive credit. Write full sentences to describe your findings.*
+
+We will use the packages `tidyverse`, `factoextra`, and `cluster` for this assignment.
+
+```{r, message = FALSE}
+# Load packages
+library(tidyverse)
+library(factoextra)
+library(cluster)
+```
+
+------------------------------------------------------------------------
+
+## Question 1: (2 pts)
+
+The dataset for this homework comes from the article:
+
+*Tsuzuku N, Kohno N. 2020. The oldest record of the Steller sea lion Eumetopias jubatus (Schreber, 1776) from the early Pleistocene of the North Pacific. <https://doi.org/10.7717/peerj.9709>*
+
+Read the ***Abstract*** of the article and the section called *Results of Morphometric Analyses*. What was the goal of this study and what was the main finding?
+
+**The goal of the study is to determine whether the GKZ-N 0001 could be confidently identified as a member of the sea lion genus Eumetopias and more specifically, to the Steller sea lion, Eumetopias jubatus. Through detailed morphometric analysis, including comparisons of measurements and principal component analysis, the researchers found that the fossil showed virtually no difference from modern male Steller sea lion. This shows that GKZ-N 00001 represents the oldest known record of E.jubatus in the North Pacific, offering new insight into the species's evolutionary history.**
+
+------------------------------------------------------------------------
+
+## Question 2: (1 pt)
+
+Under the supplemental information, I retrieved the data from a word document into a `.csv` document. Read in the dataset. 
+
+```{r}
+# download data from GitHub
+sealions <- read_csv("Sealions.csv")
+```
+
+How many rows and how many columns are in this dataset? What does a row represent? What does a column represent?
+
+```{r}
+# Check rows and columns
+dim(sealions)
+```
+
+**The dataaset has 51 rows and 39 columns. Each row shows an individual sealion specimen, and each column shows a differnet measurement associated with that specimen.**
+
+------------------------------------------------------------------------
+
+## Question 3: (1 pt)
+
+Before we can analyze the data, let's do some cleaning. Using a combination of the `select()`, `where()`, and a predicate function like `is.character()` we can scan through all the columns of the dataset and see which columns are of character type.
+
+```{r}
+## Select all of the columns that have character type
+sealions |> 
+    select(where(is.character))
+```
+
+When importing this dataset into RStudio, which variables were considered numeric? Use the `is.numeric()` predicate function here. 
+
+```{r}
+# Select all columns that are numeric
+sealions |>
+  select(where(is.numeric))
+```
+
+**When importing the dataset, only the columns that contained purely numeric values were recognized as numeric. Columns that had only numbers such as K and AD were automatically identified as numeric.**
+
+Take a look at one of the character columns. Why are some measurements not considered as numeric? 
+
+**Some measurements are not considered numeric because they include nonnumeric symobols like “-” used to denote missing values, which causes R to read these columns as character data instead of numeric.**
+
+------------------------------------------------------------------------
+
+## Question 4: (1 pt)
+
+The functions `mutate()` and `across()`, when used together, can make changes across a range of columns in a data frame. 
+
+Using `mutate()` and `across()`, replace all `-` in the dataset with the missing values *NA* and then then make sure all measurements are defined as numeric variables with `as.numeric()`. The first part of the code replaces the "-" with NA values. Write the second part to coerce all of the columns (except for the ID column!) to be numeric. Make sure to overwrite the dataset `sealions`. 
+
+NOTE: Look at the examples in `?across` to get a sense of how to use the `across()` function.
+
+```{r}
+# Replace all "-" with NA and coerce all columns
+sealions <- sealions |> 
+    mutate(across(where(is.character), ~ na_if(.x, "-"))) |> 
+    mutate(across(-ID, as.numeric))
+```
+
+What is the mean rostral tip of mandible `C`?
+
+```{r}
+# Mean rostral tip of mandible C
+meanC <- mean(sealions$C, na.rm = TRUE)
+meanC
+```
+
+**The mean rostral tip of mondible is 34.86**
+
+------------------------------------------------------------------------
+
+## Question 5: (2 pts)
+
+You are given the code in this question. But what does the code do? Write comments.
+
+```{r}
+sealions <- sealions |> 
+  ## Remove columns that have NA values in row 51.
+  select_if(!is.na(sealions[51,])) |> 
+  ## Remove all rows that contains NA values
+  na.omit()
+dim(sealions)
+```
+
+How many columns and how many rows are remaining in this dataset?
+
+**Based on using dim() to check the columns and rows after the cleaning process, the dataset has 42 rows and 23 columns.**
+
+------------------------------------------------------------------------
+
+## Question 6: (2 pts)
+
+Use the `separate()` function on `sealions` to split the `ID` variable into two variables `species` and `sex`. The article states that the fossil specimen has to be male. Replace the missing value of `sex` for the fossil specimen GKZ-N 00001. 
+
+*Hint: in the `ID` variable, what symbol separates the species from sex?* 
+
+*Hint: You could use the functions `mutate()` and `replace_na()`.* 
+
+*Hint: When separating by a special character like `[`, you need to escape it using a `\\`*
+
+Save the resulting dataset as `sealions_clean`.
+
+```{r}
+# Separate the ID colum into species and sex
+sealions_clean <- sealions |>
+  separate(ID, into = c("species", "sex"), sep = "\\[") |>
+  mutate(sex = gsub("\\]", "", sex)) |>
+  mutate(sex = replace_na(sex, "M"))
+```
+
+How many sealions are male/female?
+
+```{r}
+# Count the number of sealions according to sex
+sealions_clean |> count(sex)
+```
+
+**After count the nukber of sealions according to sex, there are 23 females and 19 males.**
+
+------------------------------------------------------------------------
+
+## Question 7: (1 pt)
+
+Using `tidyverse` functions, only keep numeric variables and scale each numeric variable. Save the resulting dataset as `sealions_num`. What should the mean of the scaled variable of the rostral tip of mandible C be?
+
+```{r}
+# Select only numeric variables
+sealions_num <- sealions_clean |> 
+  select(where(is.numeric)) |> 
+  scale() |> 
+  as.data.frame()
+mean(sealions_num$C, na.rm = TRUE)
+
+```
+
+**I get a small number like 1.487009e-16. This value is effectively 0. Because scale() centers each numeric column by subtracting its mean, the thereotical mean after scaling is 0. However, floating point arithmetic can produce tiny pumerical differneces. So the mean of the scaled variabel for rostral tip of mandible C is 0.**
+
+------------------------------------------------------------------------
+
+## Question 8: (2 pts)
+
+Let's  perform PCA on the measurements available for the fossil specimen GKZ-N 00001. Using the function `prcomp()`, calculate the principal components (PCs) for the scaled data, `sealions_num`, obtained in the previous question. Construct a scree plot with the function `fviz_eig()` from the package `factoextra`. What is the cumulative percentage of explained variance for PC1 and PC2? 
+
+```{r}
+# Perform PCA on the scaled numeric data
+pcaresults <- prcomp(sealions_num, scale = F)
+fviz_eig(pcaresults)
+eigenvalues <- pcaresults$sdev^2
+variance <- eigenvalues / sum(eigenvalues) * 100
+cumulativevar <- cumsum(variance)
+cumulativevar[1:2]
+```
+*The cumulative percentage of explained variance is approximately 84.76% for PC1 and 89.47% for PC1 and PC2 be combined.*
+
+------------------------------------------------------------------------
+
+## Question 9: (2 pts)
+
+How many *known species* are there in `sealions_clean`? Therefore, how many clusters should we look for to identify what species GKZ-N 00001 most likely belongs to? 
+
+```{r}
+# Determine the number of unique species in the dataset
+numspecies <- sealions_clean |>
+  distinct(species) |>
+  nrow()
+numspecies
+pamresults <- pam(sealions_num, k = 3) 
+```
+
+**There are 4 known species in the dataset, so we should use 4 clusters in our PAM clustering analysis to determine which species the fossil specimen GKZ-N 00001 most closely resembles.**
+
+Try using the PAM clustering algorithm using the `pam()` function in R (it is similar to K-means). Perform the PAM clustering algorithm on `sealions_num`, run the PAM clustering algorithm with 3 clusters and save the results to an object named `pam_results`.
+
+```{r}
+# Create a scatter plot of PC1 vs. PC2, shaping points by species and coloring by cluster
+pcacoords <- as.data.frame(pcaresults$x)
+pcacoords$cluster <- factor(pamresults$clustering)
+pcacoords$species <- sealions_clean$species
+ggplot(pcacoords, aes(x = PC1, y = PC2, shape = species, color = cluster)) +
+  geom_point(size = 3) +
+  labs() +
+  theme_minimal()
+```
+
+------------------------------------------------------------------------
+
+## Question 10: (2 pts)               
+
+Represent the clusters along the first two principal components and specify to shape the observations by their `species` in the aesthetics. *Note: you can either use `ggplot` or `fviz_cluster()`.* 
+
+```{r}
+# Create the plot using fviz_cluster with geom = null and add geom_point for species
+pcacoords <- as.data.frame(pcaresults$x)
+pcacoords$cluster <- factor(pamresults$clustering)
+pcacoords$species <- sealions_clean$species
+
+fviz_cluster(pamresults, geom = NULL) +
+  geom_point(data = pcacoords, 
+             aes(x = PC1, y = PC2, shape = species, color = cluster), 
+             size = 3) +
+  labs() +
+  theme_minimal()
+```
+
+The fossil specimen GKZ-N 00001 appears to be close to which species? 
+
+**The fossil specimen GKZ-N 00001 appears to cluster 1 with the group of E. jubatus, indicating it is most similar to that species.**
+
+------------------------------------------------------------------------
+
+## Question 11: (2 pts)
+
+Putting it all together. Reflect on and summarize in 1-2 sentences the different steps taken through this assignment. Compare your conclusions to the findings discussed by the researchers in the article (cite their findings).
+
+**In this assignment, I first cleaned and preprocessed the data by replacing missing value markers with NA, converting measurements to numeric, and scaling the data. Then, I used PCA to reduce the dimensionality and applied PAM clustering to group the specimens; my analysis revealed that the fossil specimen GKZ-N 00001 clusters with modern Steller sea lions, which supports the findings of Tsuzuku and Kohno that this fossil is the oldest record of E. jubatus in the North Pacific.**
+
+------------------------------------------------------------------------
+
+## Formatting: (2 pts)
+
+Comment your code, write full sentences, and knit your file!
+
+------------------------------------------------------------------------
+
+```{r, echo=F}
+## DO NOT DELETE THIS BLOCK!
+Sys.info()
+```

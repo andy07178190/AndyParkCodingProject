@@ -1,0 +1,151 @@
+---
+title: "Lab 6"
+output: html_document
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval = TRUE, error = TRUE,
+                      warning = FALSE, message = FALSE, 
+                      fig.align = "center",
+                      R.options = list(max.print=100))
+
+# Edit the file starting below
+```
+
+### Enter the names of the group members here: Armaan Christ, Emaan Haq, Andy Park
+
+**This assignment is due by the end of the lab. Only one student in the group submits a pdf file on Gradescope.**
+
+*For all questions, include the R commands/functions that you used to find your answer (show R chunk). Answers without supporting code will not receive credit. Write full sentences to describe your findings.*
+
+In this lab, you will explore the `who` dataset which comes with `tidyr`. Let's first load the `tidyverse` package that contains `tidyr`, `dplyr` and `ggplot2` which we will need today:
+
+```{r}
+library(tidyverse)
+```
+
+Then let's take a quick look at the dataset:
+
+```{r}
+# Take a quick look
+as_tibble(who)
+```
+
+The `who` dataset contains information about tuberculosis (TB) cases per country over the years. The TB cases are reported in the columns `new_sp_m014:newrel_f65` following these conventions:
+
+1.  The first three letters of each column denote `new` cases.
+
+2.  The next two/three letters describe the type of TB: `rel` = cases of relapse, `ep` = cases of extrapulmonary TB, `sn` = cases of pulmonary TB that could not be diagnosed by a pulmonary smear, `sp` = cases of pulmonary TB that could be diagnosed be a pulmonary smear.
+
+3.  The next letter indicates the gender category: females `f` or males `m`.
+
+4.  The remaining numbers gives the age group (for example, 014 means 0-14 years old).
+
+The goal of the lab is to compare tuberculosis (TB) cases across countries over time, first tidying the data.
+
+------------------------------------------------------------------------
+
+### Question 1: (3 pts)
+
+Consider the `who` dataset. Using `tidyverse` functions, convert the dataset into a long format by collecting all of the `new_diagnosis_genderage`-columns into a single column (call it `new_diagnosis_genderage`) and all of their values into another single column (call it `cases`). Save the resulting dataset (using the `<-` operator) as an R object called `long_who`. How many rows does the `long_who` dataset have?
+
+```{r}
+# Convert the wide who dataset into a long format.
+long_who <- who %>% 
+  pivot_longer(
+    cols = new_sp_m014:newrel_f65,   
+    names_to = "new_diagnosis_genderage",
+    values_to = "cases"
+  )
+
+n_rows <- nrow(long_who)
+n_rows
+```
+
+**The long_who dataset has 405440 rows. The nrow() function counts the number of rows in the transformed dataset (long_who), and the final return was 405440 rows.**
+
+------------------------------------------------------------------------
+
+### Question 2: (4 pts)
+
+Next, we would like to separate the `new_diagnosis_genderage` variable into `diagnosis`, `gender`, and `age`. Let's use the `separate()` function. However, there is a discrepancy in coding for new cases of relapse: they appear as `newrel` while all other types of cases use an `_` after `new`. The `mutate` function below will take care of that.
+
+Apply `separate()` to split the variable `new_diagnosis_genderage` into 3 variables called `new`, `diagnosis`, and `genderage`. Then apply `separate()` again to split `genderage` into 2 variables called `gender` and `age`. You will need to specify the separator this time as there is no special character! *Hint: use `sep =` a certain number which corresponds to the number of characters after which to make the split.* Finally, drop the variable `new` since we only have new cases. Call the resulting dataset `tidy_who`. How many columns are left in `tidy_who`?
+
+```{r}
+tidy_who <- 
+    long_who |>
+    mutate(new_diagnosis_genderage = 
+               str_replace(new_diagnosis_genderage, "newrel", "new_rel")) %>%
+  # Separate into three parts: the fixed "new", the diagnosis type, and the combined gender and age
+  separate(new_diagnosis_genderage, into = c("new", "diagnosis", "genderage"), sep = "_") %>% 
+  # Now split genderage with the first character: gender and the remaining characters: age.
+  separate(genderage, into = c("gender", "age"), sep = 1) %>% 
+  # Drop the 'new' column.
+  select(-new)
+
+# Check how many columns are in tidy_who.
+n_cols <- ncol(tidy_who)
+n_cols
+    
+```
+
+**After spliting the variable \`new_diagnosis_genderage', the dataset tidy_who has 8 columns.**
+
+------------------------------------------------------------------------
+
+### Question 3: (2 pts)
+
+Let's take a look at missing values. The main concern is whether a missing value means that there were no cases of TB or whether it means that the WHO does not have data on the number of TB cases. Are there any zeros in our `tidy_who` dataset? What does it mean about `NA` values?
+
+```{r}
+# use na.rm to check NA values and sume it
+sum(tidy_who$cases == 0, na.rm = TRUE)
+
+```
+
+**Based on na.rm values, there are 11080 instances where the number of TB cases is reported as 0**
+
+------------------------------------------------------------------------
+
+### Question 4: (3 pts)
+
+What about missing years for some countries? Those would not appear explicitly in the dataset, they just would not be there. Using `dplyr` functions, find the total number of distinct years for each country in `tidy_who`.
+
+Also report the minimum and maximum year contained in the dataset for each country. How many countries had less than the expected 34 years (1980 to 2013)? Why do you think these years are missing? *Note: To understand why we have missing years, look at Serbia & Montenegro. What happened to this country?*
+
+```{r}
+# your code goes below (make sure to edit comment)
+
+```
+
+**Your answer goes here. Write sentences in bold.**
+
+------------------------------------------------------------------------
+
+### Question 5: (2 pts)
+
+Investigate how the total number of TB cases (adding cases across all diagnoses) changes over the years splitting by gender or age categories. Write a research question/hypothesis to explore this change.
+
+**Your answer goes here. Write sentences in bold.**
+
+------------------------------------------------------------------------
+
+### Question 6: (4 pts)
+
+To answer your research question, first find the annual total number of TB cases in `tidy_who` per age or gender category. Then use a `ggplot` visualization. Include a headline to your visualization and interpret what you see! *Note: remember to handle missing values!*
+
+```{r}
+# your code goes below (make sure to edit comment)
+
+```
+
+**Your answer goes here. Write sentences in bold.**
+
+------------------------------------------------------------------------
+
+### Formatting: (2 pts)
+
+Comment your code, write full sentences, and knit your file!

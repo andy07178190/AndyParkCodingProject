@@ -1,0 +1,34 @@
+---
+title: "Dataset Explorer"
+output: html_document
+date: "2023-04-19"
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+```
+
+
+This document allows you to explore the variables in the `airquality` dataset in R. 
+
+```{r eruptions, echo=FALSE}
+data(airquality)
+
+inputPanel(
+  radioButtons("variable", label = "Dataset Variable",
+               choices = c("Ozone", "Solar.R", "Temp", "Wind"),
+               selected = "Ozone"),
+  numericInput("n_breaks", label = "Number of bins:",
+               value = 20)
+)
+
+renderPlot({
+    airquality |> 
+        ggplot(aes(x = .data[[input$variable]])) +
+        geom_histogram(bins = as.numeric(input$n_breaks))
+})
+```
+
+
+

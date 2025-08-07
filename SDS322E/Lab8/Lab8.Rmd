@@ -1,0 +1,141 @@
+---
+title: "Lab 8"
+output: html_document
+---
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval = TRUE,  
+                      warning = FALSE, message = FALSE, 
+                      fig.align = "center",
+                      R.options = list(max.print=100))
+
+# Edit the file starting below
+```
+
+### Enter the names of the group members here: Andy Park, AP59864
+
+**This assignment is due by the end of the day. Only one student in the group submits a pdf file on Gradescope.**
+
+*For all questions, include the R commands/functions that you used to find your answer (show R chunk). Answers without supporting code will not receive credit. Write full sentences to describe your findings.*
+
+If working on your own computer, remember to install new packages with `install.packages("name")` in the console. Don't put calls to `install.packages()` in the knitr code chunks.
+
+Let's load the appropriate packages for today:
+
+```{r, warning=FALSE}
+library(tidyverse)
+library(factoextra)
+library(cluster)
+```
+
+In this lab, you will explore a dataset containing the chemical composition of 26 ancient pottery fragments found at four sites in the British Isles (Llanedyrn, Caldicot, Isle Thorns, Ashley Rails). 
+
+We will be making use of the `factoextra` package which contains some useful functions for doing clustering and principal components analysis (PCA).
+
+Let's grab the dataset and take a quick look at it:
+
+```{r}
+# Import dataset from the carData package
+Pottery <- carData::Pottery
+
+# Look at a sample of this data
+Pottery %>%
+  sample_n(size = 10)
+```
+
+*Note: `Al` = Aluminum, `Fe` = Iron, `Mg` = Magnesium, `Ca` = Calcium, `Na` = Sodium. These concentrations are expressed in %.*
+
+The goal of the lab is to investigate any pattern in the chemical concentrations of these ancient objects using a clustering algorithm.
+
+------------------------------------------------------------------------
+
+### Question 1: (4 pts)
+
+Use the `kmeans()` function that we discussed in class to apply the K-means clustering algorithm. After dropping the `Site` variable, find how many clusters we should consider according to the average silhouette width. From Wikipedia:
+
+> The silhouette value is a measure of how similar an object is to its own cluster (cohesion) compared to other clusters (separation). The silhouette ranges from −1 to +1, where a high value indicates that the object is well matched to its own cluster and poorly matched to neighboring clusters. If most objects have a high value, then the clustering configuration is appropriate. If many points have a low or negative value, then the clustering configuration may have too many or too few clusters.
+
+So values of average silhouette width that are near +1 indicate a good clustering solution with "strong structure". Values of average silhouette width closer to 0 or -1 indicate weak structure and a sub-optimal number of clusters.
+
+We will use the `fviz_nbclust()` function to do this visualize the optimal number of clusters.
+
+
+```{r}
+# Compute a silhouette plot to determine optimal number of clusters
+Pottery %>%
+  select(-Site) %>%
+  fviz_nbclust(kmeans, method = "silhouette")
+```
+
+The optimal number of clusters is the number that corresponds to the highest "average silhouette width". What is the optimal number of clusters? How strong is the structure anticipated to be?
+
+
+**Based on the silhouette plot, the highest average silhouette width occurs at 2 clusters. This shows that a 2 cluster solution is optimal and that the underlying structure in the data is moderately strong as the average silhouette width is not extremely close to 1.**
+
+------------------------------------------------------------------------
+
+### Question 2: (6 pts)
+
+Using the appropriate number of clusters found in the previous question, apply the K-means clustering algorithm on `Pottery` (remember to drop the variable `Site` and scale the numeric variables first with the `scale()` function before running K-means). Find the mean concentration of each element for each cluster. Do you notice any differences/similarities between the clusters?
+
+```{r}
+# calculate the mean concentration of each element per cluster
+set.seed(1)
+scaledata <- scale(Pottery %>%
+                     select (-Site))
+kmeanr <- kmeans(scaledata, centers = 2, nstart = 25)
+
+potteryclu <- Pottery %>%
+  mutate(cluster = kmeanr$cluster)
+meanconc <- potteryclu %>%
+  group_by(cluster) %>%
+  summarize(across(c(Al, Fe, Mg, Ca, Na), mean))
+
+meanconc
+```
+
+**Your answer goes here. Write sentences in bold.**
+
+------------------------------------------------------------------------
+
+### Question 3: (4 pts)
+
+To visualize our clusters in a 2-D plot, we need to find the two main principal components. Perform PCA on the dataset `Pottery` with `prcomp()` (remember to drop the variable `Site` and scale the numeric variables first with `scale()`). Call the resulting object `pca`. Use `fviz_pca_var()` to consider which element(s) contribute(s) the most to each principal component. `fviz_pca_var()` plots the *loadings* associated with each element. What does a high score on the first component indicate? on the second component?
+
+```{r}
+#Visualize the loading of chemical elements on principal components.
+pca <- prcomp(Pottery %>%
+                select(-Site), scale = T)
+fviz_pca_var(pca)
+```
+
+**A high score on the first PC1 indicates that a pottery fragment is higher in the chemical elements that load most strongly and positively on PC1, typically Al and Ca. A high score on the PC2 suggests higher concentrations of whichever elements load most strongly on PC2.**
+
+------------------------------------------------------------------------
+
+### Question 4: (4 pts)
+
+In the object `pca$x`, add a variable called `cluster` containing the information about the cluster assignment, and add the variable called `Site` from the original dataset `Pottery`. Either using solely `ggplot` or adding `ggplot` layers to `fviz_cluster`, visualize the clusters along the first two principal components (i.e. PC1 and PC2) with an indication of the site. If solely using `ggplot`, add labels to the x- and y-axis to display the explained variance per principal component (like the graph in the previous question).
+
+```{r}
+# Create a data frame with the first two principal components
+pca_df <- data.frame(PC1 = pca$x[, 1],
+                     PC2 = pca$x[, 2])
+pca_df$cluster <- as.factor(kmeanr$cluster)
+pca_df$Site <- Pottery$Site
+ggplot(pca_df, aes(x = PC1, y = PC2, color = cluster, shape = Site)) +
+  geom_point() +
+  theme_minimal()
+```
+
+Which two sites seem to cluster well together? 
+
+*Note: Check where the sites are located to see why that makes sense: https://www.google.com/maps/d/edit?mid=1gS-uSfamprLs9h3cDwMv_NmfNpqf5Aqi&usp=sharing*
+
+**From the PCA plot, it appears that the pottery fragments from Llandeyrn and Caldicot form a tight cluster, indicating that their chemical compositions are more similar to each other than to those from other sites. Given that these two locations are also relatively close geographically, it’s reasonable to assume that they may have used similar clay sources or production techniques.**
+
+------------------------------------------------------------------------
+
+### Formatting: (2 pts)
+
+Comment your code, write full sentences, knit your file, and select all appropriate pages in Gradescope for each question!

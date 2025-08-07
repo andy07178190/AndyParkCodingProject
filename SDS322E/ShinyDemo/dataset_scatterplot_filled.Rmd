@@ -1,0 +1,36 @@
+---
+title: "Dataset Scatterplot Explorer"
+output: html_document
+date: "2023-04-19"
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+
+dat <- read_csv("https://github.com/rdpeng/stat322E_public/raw/main/data/pm25_data.csv.gz")
+```
+
+
+```{r eruptions, echo=FALSE}
+inputPanel(
+    radioButtons(inputId = "var1",
+                 label = "Variable 1",
+                 choices = names(dat),
+                 selected = NULL),
+    radioButtons(inputId = "var2",
+                 label = "Variable 2",
+                 choices = names(dat),
+                 selected = NULL)
+)
+
+renderPlot({
+    dat |> 
+        ggplot(aes(x = .data[[input$var1]],
+                   y = .data[[input$var2]])) + 
+        geom_point() + 
+        geom_smooth() +
+        theme_bw()
+})
+```
+

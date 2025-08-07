@@ -1,0 +1,62 @@
+---
+title: "Project 2 Preliminary Report"
+output: html_document
+---
+
+## Group Members
+
+Specify the names and EIDs of all group members (if not working in a group just put your own name and EID): Andy Park, AP59864
+
+
+
+## Dataset
+
+Identify the dataset you plan to work with (provide a link to it if possible if it is not one of the suggested datasets): 'Austin_Crash_Report_Data_-_Crash_Level_Records_20250407.csv.gz` 
+
+
+
+## Question
+
+Specify the question you plan to ask/answer with this dataset: Knowing which factors (lighting, road surface, time of day, etc.) drive injury crashes can help Austin PD and city planners target safety interventions.
+
+*Can we predict whether a crash will be fatal?*
+
+By pinpointing conditions, such aslighting, road surface quality, and time of day that most often lead to fatal crashes, I can give Austin PD and city planners the insights they need to target their safety interventions more effectively.
+
+
+## Outcome Variable
+
+What is the outcome variable in your dataset that you will be predicting? **For the purposes of this project, the outcome should either be continuous or binary**.
+
+The outcome variable is crash_fatal_fl, which indicates whether the crash was fatal as True or non‑fatal as a False. It is a binary, which is categorical variable, so I plan to use logistic regression to compare it later to tree based method.
+
+
+## Outcome Summary
+
+Provide a summary plot of the outcome variable. For example, if it is a continuous variable, show a histogram or a boxplot. If it is a binary variable, show a barplot.
+
+
+
+```{r}
+library(tidyverse)
+
+crash <- read_csv("Austin_Crash_Report_Data_-_Crash_Level_Records_20250407.csv.gz")
+
+crash <- crash %>%
+  mutate(fatal = fct_recode(
+    as_factor(crash_fatal_fl),
+    "NonFatal" = "FALSE", "Fatal" = "TRUE"))
+crash %>%
+  count(fatal)
+ggplot(crash, aes(x = fatal)) +
+  geom_bar() +
+  labs() +
+  theme_minimal()
+```
+
+
+
+
+## Submission to Gradescope
+
+**Make sure to add your group members to the Gradescope submission!**

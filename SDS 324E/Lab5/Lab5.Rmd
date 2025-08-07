@@ -1,0 +1,224 @@
+---
+title: "Lab 5"
+output: html_document
+---
+
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval = TRUE,  
+                      warning = FALSE, message = FALSE, 
+                      fig.align = "center",
+                      R.options = list(max.print=100))
+
+# Edit the file starting below
+```
+
+### Enter the names of the group members here: 
+
+**This assignment is due by the end of the day. Only one student in the group submits a pdf file on Gradescope.**
+
+*For all questions, include the R commands/functions that you used to find your answer (show R chunk). Answers without supporting code will not receive credit. Write full sentences to describe your findings.*
+
+
+The data for this lab simulate data from a health care network in a single U.S. state for a single year. There are three CSV files in the dataset:
+
+* `people.csv` - this file contains demographic information on each individual person in the dataset, including their age, gender, race, and county of residence. People are identified by a random string in the `id` column.
+
+* `healthcare.csv` - this file contains hospitalization information for each person that went to the hospital that year. The only people who are in this file are people who had a hospitalization. It is possible for people to appear multiple times in this file if they had multiple hospitalizations. The IDs in the `id` column here correspond to the IDs in the `people.csv` file.
+
+* `exposure.csv` - this file contains county-wide averages of air pollution for each of the counties in the state. Counties are identified by a number in the `county` column.
+
+### Question 1 (2 pts)
+
+For this lab we will be using 
+
+```{r}
+library(tidyverse)
+
+## Read in the 'people.csv' dataset
+people <- read_csv("people.csv")
+```
+
+Write code to read in the 'exposure.csv' and save it to an object called `exposure`
+
+```{r}
+## add your code here (make sure to edit the comment)
+
+```
+
+Write code to read in the 'healthcare.csv' and save it to an object called `healthcare`
+
+```{r}
+## add your code here (make sure to edit the comment)
+
+```
+
+
+Which `id` value had the most number of hospitalizations (regardless of diagnosis) as recorded in the `healthcare` table? How many hospitalizations did this person have?
+
+```{r}
+## add your code here (make sure to edit the comment)
+
+```
+
+**ID value 5d6faee3 had the most number of hospitalizations with 118.**
+
+
+### Question 2 (2 pts)
+
+Use the `inner_join()` function to answer the following question: How many hospitalizations did Males have in this dataset (for any diagnosis)?
+
+```{r}
+## add your code here (make sure to edit the comment)
+
+```
+
+**Males in this dataset had a total of 9,410 hospitalizations.**
+
+### Question 3 (2 pts)
+
+How many hospitalizations did people less than the age of 10 have in this dataset (for any diagnosis)?
+
+```{r}
+## add your code here (make sure to edit the comment)
+
+```
+
+**People aged less than 10 had 10,405 hospitalizations.**
+
+
+### Question 4 (2 pts)
+
+What is the average level of pollution exposure for people aged less than 6 in this dataset?
+
+```{r}
+## add your code here (make sure to edit the comment)
+
+```
+
+**The average level of exposure for people aged less than 6 in this dataset is 9.5.**
+
+
+### Question 5 (2 pts)
+
+Using the `healthcare` object, group the rows by the `id` variable, count the total number of hospitalizations for each ID, and store this data frame in a new object called `grouphealth`. The first 10 rows of the `grouphealth` data frame should look something like the following, where there is a single row for each ID and the `n` column indicates the number of hospitalizations:
+
+```r
+> grouphealth
+# A tibble: 3,545 × 2
+   id           n
+   <chr>    <int>
+ 1 001ab789     2
+ 2 001c251d     2
+ 3 0026eb32     8
+ 4 00319741     1
+ 5 0031c41c     4
+ 6 0034b1ad     1
+ 7 0040ceab     4
+ 8 00484af8     9
+ 9 004fa59a     1
+10 0053fd8b     6
+```
+
+Which ID has the 5th highest number of hospitalizations?
+
+
+```{r}
+## add your code here (make sure to edit the comment)
+
+```
+
+**ID 8a76dd92 has the 5th highest number of hospitalizations.**
+
+### Question 6 (2 pts)
+
+Left join the `people` data frame with the `grouphealth` data frame to create a new data frame called `peoplehealth`. The first 10 rows of the `peoplehealth` data frame should look as follows:
+
+```r
+> peoplehealth
+# A tibble: 29,443 × 6
+   id         age gender race     county     n
+   <chr>    <dbl> <chr>  <chr>     <dbl> <int>
+ 1 da842d0b    25 M      white        18    NA
+ 2 94e7be91     8 F      hispanic     15    NA
+ 3 ba3e3360    18 F      black        15    NA
+ 4 25339012    87 M      black        19    NA
+ 5 d2e3dc89    64 F      black         9    NA
+ 6 b66e388b     8 F      hispanic      5    NA
+ 7 494435b4     9 M      white         7    NA
+ 8 061e2436    22 M      black        16    NA
+ 9 52bdf8c3     3 M      white         2     2
+10 d7bce11f    83 M      hispanic     16    NA
+```
+
+In the `peoplehealth` data frame, how many people have an `NA` value for the `n` column?
+
+```{r}
+## add your code here (make sure to edit the comment)
+
+```
+
+**There are 25,898 people who have an `NA` value for the `n` column.**
+
+
+### Question 7 (2 pts)
+
+
+The `NA` values in the `n` column of the `peoplehealth` data frame represent people who never went to the hospital. The `NA` values were created when we merged the `people` and `grouphealth` data frames together. We can replace these `NA` values with 0s using a combination of `mutate()` and the `replace_na()` function. (Look at `?replace_na for more details.)
+
+Replace the `NA` values in `peoplehealth `with zeros and then merge this new  data frame (containing the replaced `NA` values) with the `exposure` data frame. Save the resulting merged data frame to an object named `alldata`.
+
+
+```{r}
+## add your code here (make sure to edit the comment)
+
+```
+
+
+Make a scatterplot of pollution (`pollution`) and number of hospitalizations (`n`). Make sure to put appropriate x-axis and y-axis labels.
+
+How would you characterize the relationship between these two variables in this scatterplot?
+
+```{r}
+## add your code here (make sure to edit the comment)
+
+```
+
+**There does not appear to be a strong relationship between pollution and hospitalizations, but it is hard to tell from the scatterplot because of the many overlapping points.**
+
+
+
+### Question 8 (2 pts)
+
+Use the `alldata` object to compute the average hospitalizations for each county and the average pollution for each county. Using these county averages, make a scatterplot between the county average hospitalizations (y-axis) and the county average pollution (x-axis). Make sure to put appropriate x-axis and y-axis labels.
+
+How would you characterize the relationship between pollution and hospitalizations in this plot?
+
+```{r}
+## add your code here (make sure to edit the comment)
+
+```
+
+
+**There does not appear to be a strong correlation between pollution and hospitalizations in the scatterplot.**
+
+
+
+### Question 9 (2 pts)
+
+How many people (IDs) never had any hospitalizations? In other words, how many IDs in the `people` table do NOT appear in the `healthcare` table?
+
+NOTE: It is possible to answer this question without a join function but try using one of the join functions to do so (you will get credit either way).
+
+```{r}
+## add your code here (make sure to edit the comment)
+
+```
+
+**There are 25,898 people who never had any hospitalizations.**
+
+
+### Formatting: (2 pts)
+
+Comment your code, write full sentences, and knit your file!
+

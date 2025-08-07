@@ -1,0 +1,219 @@
+---
+title: "HW 4"
+output: html_document
+---
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval = TRUE,  
+                      warning = FALSE, message = FALSE, 
+                      fig.align = "center",
+                      R.options = list(max.print=100))
+
+# Edit the file starting below
+```
+
+### Enter your name and EID here: Andy Park, AP59864
+
+**You will submit this homework assignment as a pdf file on Gradescope.**
+
+*For all questions, include the R commands/functions that you used to find your answer (show R chunk). Answers without supporting code will not receive credit. Write full sentences to describe your findings.*
+
+------------------------------------------------------------------------
+
+### Question 1: (2 pts)
+
+First load the `tidyverse` package so that we can have access to the `tidyverse` data transformation functions. We also want to look at the `penguins` dataset, which is inside the `palmerpenguins` package:
+
+```{r message=FALSE}
+# Load tidyverse
+library(tidyverse)
+
+# If you get an error with this next line, you need to run install.packages("palmerpenguins") in the console
+library(palmerpenguins)
+
+# Save the data as a dataframe
+penguins <- as_tibble(penguins)
+
+# Take a look at the top of the data frame
+penguins
+```
+
+Using a `tidyverse` function, keep all the rows/observations in the `penguins` dataset from the year 2007 and save the result as a new object called `penguins_2007`. Compare the number of observations/rows in the original `penguins` dataset with your new `penguins_2007` dataset.
+
+```{r}
+# Filter the penguins and compare the number of rows
+penguins_2007 <- penguins %>%
+  filter(year == 2007)
+
+totalrow <- nrow(penguins)
+rows2007 <- nrow(penguins_2007)
+
+totalrow
+rows2007
+```
+
+**The original penguins dataset contains a total of 344 observations, and after filtering for the year 2007, the new object penguins_2007 contains 110 observations.**
+
+------------------------------------------------------------------------
+
+### Question 2: (2 pts)
+
+Using `tidyverse` functions on `penguins_2007`, report the number of observations for each species-island combination (note that you'll need to `group_by`). Which species appears on all three islands? 
+
+```{r}
+# Group penguins_2007 by species and island and count the observations in each group
+species_island <- penguins_2007 %>%
+  group_by(species, island) %>%
+  summarise(n = n()) %>%
+  arrange(species, island)
+
+species_island
+```
+
+**The species that appears on all three islands (Biscoe, Dream, and Torgersen) is Adelie.**
+
+------------------------------------------------------------------------
+
+### Question 3: (2 pts)
+
+Using `tidyverse` functions on `penguins_2007`, create a new variable that contains the ratio of `bill_length_mm` to `bill_depth_mm` (call it `bill_ratio`). *Once you checked that your variable is created correctly*, overwrite `penguins_2007` so it contains this new variable.
+
+```{r}
+# Create a new variable bill_ratio
+penguins_2007 <- penguins_2007 %>%
+  mutate(bill_ratio = bill_length_mm / bill_depth_mm)
+```
+
+Are there any cases in the `penguins_2007` dataset for which the `bill_ratio` exceeds 3.5? If so, for which species of penguins is this true?
+
+```{r}
+# Check for cases where bill_ratio exceeds 3.5.
+exceedbill_ratio <- penguins_2007 %>%
+  filter(bill_ratio > 3.5) %>%
+  select(species, bill_ratio)
+
+exceedbill_ratio
+
+```
+
+**Yes, there are cases in the penguins_2007 dataset where the bill_ratio exceeds 3.5. This is true for the Gentoo species..**
+
+------------------------------------------------------------------------
+
+### Question 4: (2 pts)
+
+Using `tidyverse` functions on `penguins_2007`, find the three penguins with the smallest bill ratio for *each species*. Only display the information about `species`, `sex`, and `bill_ratio`. Does the same sex has the smallest bill ratio across species?
+
+```{r}
+# For each species, find the three penguins with the smallest bill_ratio and show species, sex, and bill_ratio
+smallestbill_ratio <- penguins_2007 %>%
+  group_by(species) %>%
+  arrange(bill_ratio) %>%
+  slice_head(n = 3) %>%
+  select(species, sex, bill_ratio)
+
+smallestbill_ratio
+```
+
+**No, the same sex does not have the smallest bill ratio across species. For Adelie, the smallest bill ratios are observed in males, while for Chinstrap and Gentoo, the smallest bill ratios are observed in females.**
+
+------------------------------------------------------------------------
+
+### Question 5: (2 pts)
+
+Using `tidyverse` functions on `penguins_2007`, calculate the mean and standard deviation of `bill_ratio` for each species. Drop NAs from `bill_ratio` for these computations (e.g., using the argument `na.rm = T`) so you have values for each species. Which species has the greatest mean `bill_ratio`?
+
+```{r}
+# Calculate the mean and standard deviation of bill_ratio for each species
+billstats <- penguins_2007 %>%
+  group_by(species) %>%
+  summarise(mean_bill_ratio = mean(bill_ratio, na.rm = TRUE),
+            sd_bill_ratio = sd(bill_ratio, na.rm = TRUE))
+
+billstats
+
+```
+
+**Based on the tabple, the species with the greatest mean bill_ratio is Gentoo, with a mean of 3.203209..**
+
+------------------------------------------------------------------------
+
+### Question 6: (2 pts)
+
+Using `tidyverse` functions on `penguins_2007`, remove missing values for `sex`. Pipe a `ggplot` to create a single plot showing the distribution of `body_mass_g` colored by male and female penguins, faceted by species (use the function `facet_wrap()` with the option `nrow = ` to give each species its own row). Which species shows the least sexual dimorphism (i.e., the greatest overlap of male/female size distributions)?
+
+```{r}
+# Remove rows with missing values for sex and create a ggplot for body_mass_g distributions by male and female penguins, faceted by species.
+penguins_2007 %>%
+  filter(!is.na(sex)) %>%
+  ggplot(aes(x = body_mass_g, fill = sex)) +
+  geom_density(alpha = 0.5) +
+  facet_wrap(~ species, nrow = 3) +
+  labs(x = "Body Mass (g)", title = "Distribution of Body Mass by Sex and Species")
+
+```
+
+**Chinstrap shows the least sexual dimorphism, as the distributions of body mass for male and female penguins have the greatest overlap compared to Adelie and Gentoo.**
+
+------------------------------------------------------------------------
+
+### Question 7: (2 pts)
+
+Pipe`penguins_2007` to `ggplot()` to create a scatterplot of `body_mass_g` (y-axis) against `bill_ratio` (x-axis). Does it look like there is a relationship between the bill ratio and the body mass? *Note: you might see a Warning message.* What does this message refer to?*
+
+```{r}
+# Scatterplot of body_mass_g vs bill_ratio for penguins_2007
+ggplot(penguins_2007, aes(x = bill_ratio, y = body_mass_g)) +
+  geom_point() +
+  labs(x = "Bill Ratio", y = "Body Mass (g)", 
+       title = "Scatterplot of Body Mass vs. Bill Ratio")
+```
+
+**The scatterplot suggests that there is no strong linear relationship between bill ratio and body mass. However, Gentoo penguins, which have higher bill ratios, generally exhibit greater body mass compared to Adelie and Chinstrap species. The warning message likely refers to missing values in the bill ratio or body mass variables, which are excluded from the plot.**
+
+------------------------------------------------------------------------
+
+### Question 8: (2 pts)
+
+What if we separate each species? Duplicate the plot from the previous question and add a regression trend line with `geom_smooth(method = "lm")`. Color the points AND the regression lines by species. Does the relationship between the bill ratio and the body mass appear to be the same across the different species?
+
+```{r}
+# Create a scatterplot with a linear regression line, colored by species
+ggplot(penguins_2007, aes(x = bill_ratio, y = body_mass_g, color = species)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(x = "Bill Ratio", y = "Body Mass (g)",
+       title = "Scatterplot with Regression Trend Lines by Species")
+
+```
+
+**No, the relationship between bill ratio and body mass is not the same across the different species. For Adelie, the trend line shows a slight negative relationship, while Chinstrap shows a slightly positive trend. Gentoo displays a more pronounced positive relationship between bill ratio and body mass. This indicates that the association between bill ratio and body mass varies significantly among the species.**
+
+------------------------------------------------------------------------
+
+### Question 9: (2 pts)
+
+Finally, let's make a plot using the original `penguins` dataset (not just the 2007 data). Forewarning: This will be very busy plot!
+
+Map `body_mass_g` to the y-axis, `flipper_length_mm` to the x-axis, `species` to color, and `island` to shape. Using `facet_wrap()`, facet the plots by `year`. Find a way to clean up the x-axis labels (e.g., reduce the number of tick marks) using `scale_x_continuous()`. Does there appear to be a relationship between body mass and flipper length overall? Is there a relationship within each species? What happens to the distribution of flipper lengths for species over time?
+
+```{r}
+# Create a busy plot using the original penguins dataset, mapping body_mass_g, flipper_length_mm, species, and island,
+ggplot(penguins, aes(x = flipper_length_mm, y = body_mass_g, color = species, shape = island)) +
+  geom_point() +
+  facet_wrap(~ year) +
+  scale_x_continuous(breaks = seq(170, 240, by = 10)) +
+  labs(x = "Flipper Length (mm)", y = "Body Mass (g)",
+       title = "Relationship Between Body Mass and Flipper Length by Year")
+
+
+```
+
+**The overall, there is a positive relationship between body mass and flipper length, where penguins with longer flippers tend to have higher body mass. This relationship is consistent within each species, but the slopes and distributions differ. Gentoo penguins generally have both the longest flippers and the highest body mass, while Adelie and Chinstrap species cluster at shorter flipper lengths and lower body masses. Over time, the distribution of flipper lengths remains relatively consistent within each species, suggesting stability in body size and morphology across the years.**
+
+------------------------------------------------------------------------
+
+### Formatting: (2 pts)
+
+Comment your code, write full sentences, and knit your file!
+

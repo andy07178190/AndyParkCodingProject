@@ -1,0 +1,57 @@
+---
+title: "Dataset Scatterplot Explorer"
+output: html_document
+date: "2023-04-19"
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+
+dat <- read_csv("https://github.com/rdpeng/stat322E_public/raw/main/data/pm25_data.csv.gz")
+```
+
+
+```{r, echo = FALSE}
+inputPanel(
+    selectInput(inputId = "XVar", 
+                label = "X Variable",
+                choices = names(dat)),
+    selectInput(inputId = "YVar",
+                label = "Y Variable",
+                choices = names(dat)),
+    textInput(inputId = "plottitle",
+              label = "Plot Title:")
+)
+
+renderPlot({
+    dat |> 
+        ggplot(aes(x = .data[[input$XVar]],
+                   y = .data[[input$YVar]])) + 
+        geom_point() + 
+        geom_smooth() +
+        labs(title = input$plottitle)})
+```
+
+## Summary Statistics
+
+Mean of X Variable
+
+```{r, echo=FALSE}
+renderText({
+    mean(dat[[input$XVar]], na.rm = TRUE)
+})
+```
+
+
+Mean of Y Variable
+
+```{r, echo = FALSE}
+renderText({
+   mean(dat[[input$YVar]], na.rm = TRUE) 
+})
+```
+
+
+
+
